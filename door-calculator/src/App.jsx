@@ -4,7 +4,7 @@ import { Printer, Plus, Trash2, FileText } from 'lucide-react';
 const App = () => {
   // --- State Management ---
   const [doorType, setDoorType] = useState("2 Panel");
-  const [jobName, setJobName] = useState("H. B. C. Leamington");
+  const [jobName, setJobName] = useState("Job Name");
   const [doors, setDoors] = useState([
     { id: 1, width: 36, height: 96, qty: 1, midStileCenter: 36, useGlobalSideRail: true, sideRailWidth: "", sideRailThickness: "" },
   ]);
@@ -417,7 +417,7 @@ const App = () => {
         
         {/* Footer Note */}
         <div className="mt-8 text-[10px] text-gray-400 border-t pt-2 flex justify-between">
-          <span>Generated via HBC Door System</span>
+          <span>Generated via Door Part Calculator</span>
           <span>Date: {new Date().toLocaleDateString()}</span>
         </div>
       </div>
