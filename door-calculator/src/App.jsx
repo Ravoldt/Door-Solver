@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Printer, Plus, Trash2, FileText } from 'lucide-react';
+import { Printer, Plus, Trash2, FileText, Save, FolderOpen } from 'lucide-react';
 
 const App = () => {
   // --- State Management ---
@@ -146,6 +146,54 @@ const App = () => {
 
   const data = calculateData();
 
+  // --- Save/Load Logic ---
+  const handleSave = () => {
+    const stateToSave = {
+      jobName,
+      doorType,
+      doors,
+      settings,
+      appVersion: '1.0' // Good practice for future migrations
+    };
+
+    const blob = new Blob([JSON.stringify(stateToSave, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${jobName.replace(/ /g, '_') || 'door_job'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleLoad = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const loadedState = JSON.parse(e.target.result);
+        // Basic validation
+        if (loadedState.jobName && loadedState.doorType && loadedState.doors && loadedState.settings) {
+          setJobName(loadedState.jobName);
+          setDoorType(loadedState.doorType);
+          setDoors(loadedState.doors);
+          setSettings(loadedState.settings);
+        } else {
+          alert('Invalid or corrupted save file.');
+        }
+      } catch (error) {
+        console.error("Failed to load or parse file:", error);
+        alert('Failed to load file. It may be corrupted.');
+      }
+    };
+    reader.readAsText(file);
+    // Reset file input so onChange fires again for the same file
+    event.target.value = null;
+  };
+
   const addDoor = () => {
     setDoors([...doors, { id: Date.now(), width: 36, height: 96, qty: 1, midStileCenter: 36, useGlobalSideRail: true, sideRailWidth: "", sideRailThickness: "" }]);
   };
@@ -166,12 +214,35 @@ const App = () => {
           <h2 className="text-xl font-bold flex items-center gap-2">
             <FileText className="text-blue-600" /> Door Specification Input
           </h2>
-          <button 
-            onClick={() => window.print()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
-          >
-            <Printer size={18} /> Print Cut-List
-          </button>
+          <div className="flex items-center gap-2">
+            <input 
+              type="file" 
+              id="loadFile" 
+              className="hidden" 
+              onChange={handleLoad} 
+              accept=".json"
+            />
+            <label 
+              htmlFor="loadFile"
+              className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-300 transition cursor-pointer"
+            >
+              <FolderOpen size={18} /> Load
+            </label>
+
+            <button 
+              onClick={handleSave}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 transition"
+            >
+              <Save size={18} /> Save
+            </button>
+
+            <button 
+              onClick={() => window.print()}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
+            >
+              <Printer size={18} /> Print Cut-List
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
