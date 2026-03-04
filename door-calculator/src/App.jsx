@@ -51,8 +51,8 @@ const App = () => {
     let topStilesMap = {};
     let midStilesMap = {};
     let botStilesMap = {};
-    let panelSection1 = []; // Upper / All
-    let panelSection2 = []; // Lower (only used for 2 panel)
+    let panelSection1Map = {}; // Upper / All
+    let panelSection2Map = {}; // Lower (only used for 2 panel)
     let doorSummaries = [];
 
     doors.forEach(door => {
@@ -98,18 +98,22 @@ const App = () => {
       
       if (doorType === "1 Panel") {
         const pHeight = height - settings.topStileWidth - settings.botStileWidth + 2;
-        panelSection1.push({ qty: qty, size: `${toFraction(pWidth)} x ${toFraction(pHeight)}`, label: "" });
+        const size = `${toFraction(pWidth)} x ${toFraction(pHeight)}`;
+        panelSection1Map[size] = (panelSection1Map[size] || 0) + qty;
       } 
       else if (doorType === "2 Panel") {
         const pHeightLower = midStileCenter - settings.botStileWidth - (settings.midStileWidth / 2) + 2;
         const pHeightUpper = height - midStileCenter - settings.topStileWidth - (settings.midStileWidth / 2) + 2;
-        panelSection1.push({ qty: qty, size: `${toFraction(pWidth)} x ${toFraction(pHeightUpper)}`, label: "(Upper)" });
-        panelSection2.push({ qty: qty, size: `${toFraction(pWidth)} x ${toFraction(pHeightLower)}`, label: "(Lower)" });
+        const sizeUpper = `${toFraction(pWidth)} x ${toFraction(pHeightUpper)}`;
+        panelSection1Map[sizeUpper] = (panelSection1Map[sizeUpper] || 0) + qty;
+        const sizeLower = `${toFraction(pWidth)} x ${toFraction(pHeightLower)}`;
+        panelSection2Map[sizeLower] = (panelSection2Map[sizeLower] || 0) + qty;
       } 
       else if (doorType === "3 Panel") {
         const availableSpace = height - settings.topStileWidth - settings.botStileWidth - (2 * settings.midStileWidth);
         const pHeight = (availableSpace / 3) + 2;
-        panelSection1.push({ qty: qty * 3, size: `${toFraction(pWidth)} x ${toFraction(pHeight)}`, label: "(All)" });
+        const size = `${toFraction(pWidth)} x ${toFraction(pHeight)}`;
+        panelSection1Map[size] = (panelSection1Map[size] || 0) + (qty * 3);
       }
 
       doorSummaries.push({ qty: qty, size: `${width} x ${height}"` });
@@ -124,6 +128,18 @@ const App = () => {
   const topStiles = Object.keys(topStilesMap).map(size => ({ qty: topStilesMap[size], size }));
   const midStiles = Object.keys(midStilesMap).map(size => ({ qty: midStilesMap[size], size }));
   const botStiles = Object.keys(botStilesMap).map(size => ({ qty: botStilesMap[size], size }));
+
+  const panelSection1 = Object.keys(panelSection1Map).map(size => ({
+    qty: panelSection1Map[size],
+    size: size,
+    label: doorType === "2 Panel" ? "(Upper)" : (doorType === "3 Panel" ? "(All)" : "")
+  }));
+
+  const panelSection2 = Object.keys(panelSection2Map).map(size => ({
+    qty: panelSection2Map[size],
+    size: size,
+    label: "(Lower)"
+  }));
 
     return { sideRails, topStiles, midStiles, botStiles, panelSection1, panelSection2, doorSummaries };
   };
@@ -408,7 +424,7 @@ const App = () => {
                 </tbody>
               </table>
               <div className="mt-4 text-right italic text-sm font-bold border-t border-dashed border-gray-400 pt-2">
-                Back of page Diagram
+                placeholder div
               </div>
             </section>
           </div>
