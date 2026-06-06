@@ -27,7 +27,7 @@ export const calculateData = (doors, settings, doorType) => {
   const botStilesMap = new Map();
   const panelSection1Map = new Map();
   const panelSection2Map = new Map();
-  const doorSummaries = [];
+  const doorSummariesMap = new Map();
 
   const stileWidth = roundDimension(settings.stileWidth);
   const stileThickness = roundDimension(settings.stileThickness);
@@ -40,6 +40,51 @@ export const calculateData = (doors, settings, doorType) => {
   const verticalPanelClearance = roundDimension(settings.verticalPanelClearance);
   const horizontalPanelClearance = roundDimension(settings.horizontalPanelClearance);
   const panelHeightAllowance = roundDimension((grooveDepth * 2) - verticalPanelClearance);
+
+  const panelCalculators = {
+    "1 Panel": (height, panelWidth, qty) => {
+      const panelHeight = roundDimension(height - topRailWidth - bottomRailWidth + panelHeightAllowance);
+      addGroupedItem(
+        panelSection1Map,
+        buildKey(panelWidth, panelHeight, "all"),
+        { width: panelWidth, height: panelHeight, label: "" },
+        qty,
+      );
+    },
+    "2 Panel": (height, panelWidth, qty) => {
+      const lowerPanelHeight = roundDimension(
+        midStileCenter - bottomRailWidth - (middleRailWidth / 2) + panelHeightAllowance,
+      );
+      const upperPanelHeight = roundDimension(
+        height - midStileCenter - topRailWidth - (middleRailWidth / 2) + panelHeightAllowance,
+      );
+
+      addGroupedItem(
+        panelSection1Map,
+        buildKey(panelWidth, upperPanelHeight, "upper"),
+        { width: panelWidth, height: upperPanelHeight, label: "(Upper)" },
+        qty,
+      );
+
+      addGroupedItem(
+        panelSection2Map,
+        buildKey(panelWidth, lowerPanelHeight, "lower"),
+        { width: panelWidth, height: lowerPanelHeight, label: "(Lower)" },
+        qty,
+      );
+    },
+    "3 Panel": (height, panelWidth, qty) => {
+      const availableSpace = height - topRailWidth - bottomRailWidth - (2 * middleRailWidth);
+      const panelHeight = roundDimension((availableSpace / 3) + panelHeightAllowance);
+
+      addGroupedItem(
+        panelSection1Map,
+        buildKey(panelWidth, panelHeight, "all"),
+        { width: panelWidth, height: panelHeight, label: "(All)" },
+        qty * 3,
+      );
+    },
+  };
 
   doors.forEach((door) => {
     const qty = Number(door.qty) || 0;
@@ -85,48 +130,17 @@ export const calculateData = (doors, settings, doorType) => {
       width - (railWidth * 2) + (grooveDepth * 2) - horizontalPanelClearance,
     );
 
-    if (doorType === "1 Panel") {
-      const panelHeight = roundDimension(height - topRailWidth - bottomRailWidth + panelHeightAllowance);
-      addGroupedItem(
-        panelSection1Map,
-        buildKey(panelWidth, panelHeight, "all"),
-        { width: panelWidth, height: panelHeight, label: "" },
-        qty,
-      );
-    } else if (doorType === "2 Panel") {
-      const lowerPanelHeight = roundDimension(
-        midStileCenter - bottomRailWidth - (middleRailWidth / 2) + panelHeightAllowance,
-      );
-      const upperPanelHeight = roundDimension(
-        height - midStileCenter - topRailWidth - (middleRailWidth / 2) + panelHeightAllowance,
-      );
-
-      addGroupedItem(
-        panelSection1Map,
-        buildKey(panelWidth, upperPanelHeight, "upper"),
-        { width: panelWidth, height: upperPanelHeight, label: "(Upper)" },
-        qty,
-      );
-
-      addGroupedItem(
-        panelSection2Map,
-        buildKey(panelWidth, lowerPanelHeight, "lower"),
-        { width: panelWidth, height: lowerPanelHeight, label: "(Lower)" },
-        qty,
-      );
-    } else if (doorType === "3 Panel") {
-      const availableSpace = height - topRailWidth - bottomRailWidth - (2 * middleRailWidth);
-      const panelHeight = roundDimension((availableSpace / 3) + panelHeightAllowance);
-
-      addGroupedItem(
-        panelSection1Map,
-        buildKey(panelWidth, panelHeight, "all"),
-        { width: panelWidth, height: panelHeight, label: "(All)" },
-        qty * 3,
-      );
+    const calculatePanels = panelCalculators[doorType];
+    if (calculatePanels) {
+      calculatePanels(height, panelWidth, qty);
     }
 
-    doorSummaries.push({ qty, width, height });
+    addGroupedItem(
+      doorSummariesMap,
+      buildKey(width, height),
+      { width, height },
+      qty,
+    );
   });
 
   return {
@@ -136,6 +150,6 @@ export const calculateData = (doors, settings, doorType) => {
     botStiles: mapToList(botStilesMap),
     panelSection1: mapToList(panelSection1Map),
     panelSection2: mapToList(panelSection2Map),
-    doorSummaries,
+    doorSummaries: mapToList(doorSummariesMap),
   };
 };

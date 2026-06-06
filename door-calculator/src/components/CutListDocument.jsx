@@ -1,10 +1,10 @@
 import { toFraction } from "../utils";
 
-const printBorderClassName = "border-stone-900 print:border-black print:border-2";
+const printBorderClassName = "border-stone-900";
 const tableClassName = `w-full border-collapse border-2 ${printBorderClassName}`;
 const cellClassName = `border ${printBorderClassName}`;
-const headerRowClassName = "bg-stone-200 print:bg-white";
-const dividerRowClassName = "bg-stone-200 h-2 print:bg-white";
+const headerRowClassName = "bg-stone-200";
+const dividerRowClassName = "bg-stone-200 h-2";
 
 const renderEmptyRows = (count, prefix) =>
   Array.from({ length: count }, (_, index) => (
@@ -19,10 +19,10 @@ const formatPanelSize = (row) => `${toFraction(row.width)} x ${toFraction(row.he
 const formatDoorSize = (row) => `${toFraction(row.width)} x ${toFraction(row.height)}`;
 
 const CutListDocument = ({ data, doorType, jobName }) => (
-  <div className="max-w-[8.5in] mx-auto bg-white p-[0.5in] shadow-2xl border border-stone-900 rounded-sm print:bg-white print:border-black print:border-2 print:shadow-none print:p-[0.25in] min-h-[11in] print:min-h-[10in] flex flex-col">
+  <div className="max-w-[8.5in] mx-auto bg-white p-[0.5in] shadow-2xl border border-stone-900 rounded-sm print:bg-white print:shadow-none print:p-[0.5in] min-h-[11in] print:min-h-[9.5in] flex flex-col">
     <div className={`mb-6 border-b-4 ${printBorderClassName} pb-2`}>
       <h1 className="text-2xl font-black uppercase tracking-tighter">{jobName}</h1>
-      <div className={`text-lg border-2 ${printBorderClassName} px-3 py-1 mt-2 inline-block font-bold bg-stone-100 print:bg-white rounded-sm`}>
+      <div className={`text-lg border-2 ${printBorderClassName} px-3 py-1 mt-2 inline-block font-bold bg-stone-100 rounded-sm`}>
         {doorType} Door
       </div>
     </div>
@@ -34,7 +34,7 @@ const CutListDocument = ({ data, doorType, jobName }) => (
             <thead>
               <tr className={headerRowClassName}>
                 <th className={`${cellClassName} p-1 w-12 text-sm`}>Qty.</th>
-                <th className={`${cellClassName} p-1 text-sm`}>Side Rail Sizes</th>
+                <th className={`${cellClassName} p-1 text-sm`}>Stiles</th>
               </tr>
             </thead>
             <tbody>
@@ -54,7 +54,7 @@ const CutListDocument = ({ data, doorType, jobName }) => (
             <thead>
               <tr className={headerRowClassName}>
                 <th className={`${cellClassName} p-1 w-12 text-sm`}>Qty.</th>
-                <th className={`${cellClassName} p-1 text-sm`}>Panel Sizes {doorType === "2 Panel" && "(Upper / Lower)"}</th>
+                <th className={`${cellClassName} p-1 text-sm`}>Panels {doorType === "2 Panel" && "(Upper / Lower)"}</th>
               </tr>
             </thead>
             <tbody>
@@ -70,7 +70,7 @@ const CutListDocument = ({ data, doorType, jobName }) => (
 
               {doorType === "2 Panel" && (
                 <>
-                  <tr className="bg-stone-100 h-2 print:bg-white">
+                  <tr className="bg-stone-100 h-2">
                     <td colSpan="2" className={cellClassName}></td>
                   </tr>
                   {data.panelSection2.map((row, index) => (
@@ -97,7 +97,7 @@ const CutListDocument = ({ data, doorType, jobName }) => (
             <thead>
               <tr className={headerRowClassName}>
                 <th className={`${cellClassName} p-1 w-12 text-sm`}>Qty.</th>
-                <th className={`${cellClassName} p-1 text-sm`}>End Stile Sizes</th>
+                <th className={`${cellClassName} p-1 text-sm`}>Rails</th>
               </tr>
             </thead>
             <tbody>
@@ -149,7 +149,7 @@ const CutListDocument = ({ data, doorType, jobName }) => (
         <section className="mt-auto">
           <table className={tableClassName}>
             <thead>
-              <tr className="bg-stone-900 text-white print:bg-white print:text-black">
+              <tr className="bg-stone-900 text-white">
                 <th className={`${cellClassName} p-1 w-12 text-sm`}>Qty.</th>
                 <th className={`${cellClassName} p-1 text-sm uppercase tracking-widest`}>Door Size</th>
               </tr>
@@ -177,9 +177,18 @@ const CutListDocument = ({ data, doorType, jobName }) => (
 
     <style>{`
       @media print {
-        body { background: white; padding: 0; }
+        body {
+          background: white;
+          padding: 0;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
         .shadow-2xl { box-shadow: none; }
-        @page { margin: 0.5in; }
+        @page { size: letter portrait; margin: 0.5in; }
       }
     `}</style>
   </div>
