@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FileText, FolderOpen, Plus, Printer, Save } from "lucide-react";
+import { ChevronDown, FileText, FolderOpen, Plus, Printer, Save, SlidersHorizontal } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 import { calculateData } from "./calculations";
 import CutListDocument from "./components/CutListDocument";
@@ -8,64 +8,117 @@ import DoorRow from "./components/DoorRow";
 import { parseFraction } from "./utils";
 
 const DEFAULT_SETTINGS = {
-  sideRailWidth: 5.125,
-  sideRailThickness: 1.75,
-    topStileWidth: 5.125,
-    midStileWidth: 6.25,
-    botStileWidth: 9.125,
-    panelWidthOffset: 7.5,
-  endStileLengthOffset: 7,
+  stileWidth: 5.125,
+  stileThickness: 1.75,
+  topRailWidth: 5.125,
+  middleRailWidth: 6.25,
+  bottomRailWidth: 9.125,
+  midStileCenter: 36,
+  grooveDepth: 1.5,
+  tongueLength: 1.5,
+  verticalPanelClearance: 0.5,
+  horizontalPanelClearance: 0.5,
 };
 
 const parseDimension = (value, fallback = 0) => {
+  if (value == null || value === "") {
+    return fallback;
+  }
+
   const parsedValue = parseFraction(value);
   return Number.isNaN(parsedValue) ? fallback : parsedValue;
-  };
+};
 
 const createDoor = (settings = DEFAULT_SETTINGS) => ({
   id: Date.now(),
   width: 36,
   height: 96,
   qty: 1,
-  midStileCenter: 36,
   useGlobalSideRail: true,
-  sideRailWidth: settings.sideRailWidth,
-  sideRailThickness: settings.sideRailThickness,
+  stileWidth: settings.stileWidth,
+  stileThickness: settings.stileThickness,
 });
 
-const normalizeSettings = (loadedSettings = {}) => ({
-  ...DEFAULT_SETTINGS,
-  ...loadedSettings,
-  sideRailWidth: parseDimension(loadedSettings.sideRailWidth, DEFAULT_SETTINGS.sideRailWidth),
-  sideRailThickness: parseDimension(loadedSettings.sideRailThickness, DEFAULT_SETTINGS.sideRailThickness),
-  topStileWidth: parseDimension(loadedSettings.topStileWidth, DEFAULT_SETTINGS.topStileWidth),
-  midStileWidth: parseDimension(loadedSettings.midStileWidth, DEFAULT_SETTINGS.midStileWidth),
-  botStileWidth: parseDimension(loadedSettings.botStileWidth, DEFAULT_SETTINGS.botStileWidth),
-  panelWidthOffset: parseDimension(loadedSettings.panelWidthOffset, DEFAULT_SETTINGS.panelWidthOffset),
-  endStileLengthOffset: parseDimension(loadedSettings.endStileLengthOffset, DEFAULT_SETTINGS.endStileLengthOffset),
-});
+const normalizeSettings = (loadedSettings = {}) => {
+  return {
+    ...DEFAULT_SETTINGS,
+    stileWidth: parseDimension(loadedSettings.stileWidth, DEFAULT_SETTINGS.stileWidth),
+    stileThickness: parseDimension(loadedSettings.stileThickness, DEFAULT_SETTINGS.stileThickness),
+    topRailWidth: parseDimension(loadedSettings.topRailWidth, DEFAULT_SETTINGS.topRailWidth),
+    middleRailWidth: parseDimension(loadedSettings.middleRailWidth, DEFAULT_SETTINGS.middleRailWidth),
+    bottomRailWidth: parseDimension(loadedSettings.bottomRailWidth, DEFAULT_SETTINGS.bottomRailWidth),
+    midStileCenter: parseDimension(loadedSettings.midStileCenter, DEFAULT_SETTINGS.midStileCenter),
+    grooveDepth: parseDimension(loadedSettings.grooveDepth, DEFAULT_SETTINGS.grooveDepth),
+    tongueLength: parseDimension(loadedSettings.tongueLength, DEFAULT_SETTINGS.tongueLength),
+    verticalPanelClearance: parseDimension(
+      loadedSettings.verticalPanelClearance,
+      DEFAULT_SETTINGS.verticalPanelClearance,
+    ),
+    horizontalPanelClearance: parseDimension(
+      loadedSettings.horizontalPanelClearance,
+      DEFAULT_SETTINGS.horizontalPanelClearance,
+    ),
+  };
+};
 
 const normalizeDoor = (door = {}, settings = DEFAULT_SETTINGS) => {
   const baseDoor = createDoor(settings);
 
   return {
-    ...baseDoor,
-    ...door,
     id: door.id ?? baseDoor.id,
     qty: Number(door.qty ?? baseDoor.qty) || 0,
     width: parseDimension(door.width, baseDoor.width),
     height: parseDimension(door.height, baseDoor.height),
-    midStileCenter: parseDimension(door.midStileCenter, baseDoor.midStileCenter),
     useGlobalSideRail: door.useGlobalSideRail !== false,
-    sideRailWidth: parseDimension(door.sideRailWidth, settings.sideRailWidth),
-    sideRailThickness: parseDimension(door.sideRailThickness, settings.sideRailThickness),
+    stileWidth: parseDimension(door.stileWidth, settings.stileWidth),
+    stileThickness: parseDimension(door.stileThickness, settings.stileThickness),
   };
 };
+
+const secondaryButtonClassName =
+  "bg-stone-100 text-stone-900 border border-stone-300 px-4 py-2 rounded-sm flex items-center gap-2 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-500 transition-colors";
+const primaryButtonClassName =
+  "bg-[#00A69C] text-white border border-[#00A69C] px-4 py-2 rounded-sm flex items-center gap-2 hover:bg-teal-700 hover:border-teal-700 transition-colors";
+const inputLineClassName =
+  "w-full border-b-2 border-stone-900 focus:border-[#00A69C] outline-none py-1 text-lg bg-transparent";
+const settingsPanelClassName =
+  "p-4 bg-white rounded-sm border border-stone-900";
+const dimensionInputClassName =
+  "w-full p-1 mt-1 border border-stone-900 rounded-sm focus:border-[#00A69C] outline-none";
+
+const SETTING_GROUPS = [
+  {
+    title: "Stiles",
+    fields: [
+      { name: "stileWidth", label: "Stile Width" },
+      { name: "stileThickness", label: "Stile Thickness" },
+    ],
+  },
+  {
+    title: "Rails",
+    fields: [
+      { name: "topRailWidth", label: "Top Rail Width" },
+      { name: "middleRailWidth", label: "Middle Rail Width" },
+      { name: "bottomRailWidth", label: "Bottom Rail Width" },
+      { name: "midStileCenter", label: "Mid-Stile Center" },
+    ],
+  },
+  {
+    title: "Joinery",
+    fields: [
+      { name: "grooveDepth", label: "Groove Depth" },
+      { name: "tongueLength", label: "Tongue Length" },
+      { name: "verticalPanelClearance", label: "Vertical Panel Clearance" },
+      { name: "horizontalPanelClearance", label: "Horizontal Panel Clearance" },
+    ],
+  },
+];
 
 const App = () => {
   const [doorType, setDoorType] = useState("2 Panel");
   const [jobName, setJobName] = useState("Job Name");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [doors, setDoors] = useState(() => [createDoor(DEFAULT_SETTINGS)]);
 
   const data = useMemo(() => calculateData(doors, settings, doorType), [doors, settings, doorType]);
@@ -156,8 +209,8 @@ const App = () => {
           return {
             ...door,
             useGlobalSideRail: value,
-            sideRailWidth: !value && !door.sideRailWidth ? settings.sideRailWidth : door.sideRailWidth,
-            sideRailThickness: !value && !door.sideRailThickness ? settings.sideRailThickness : door.sideRailThickness,
+            stileWidth: !value && !door.stileWidth ? settings.stileWidth : door.stileWidth,
+            stileThickness: !value && !door.stileThickness ? settings.stileThickness : door.stileThickness,
           };
         }
 
@@ -167,13 +220,13 @@ const App = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans">
+    <div className="min-h-screen bg-[#FAFAFA] p-4 md:p-8 font-sans">
       <Toaster position="top-right" />
 
-      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm p-6 mb-8 print:hidden">
+      <div className="max-w-4xl mx-auto bg-white rounded-sm shadow-sm p-6 mb-8 border border-stone-900 print:hidden print:bg-white print:border-black print:border-2 print:shadow-none">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold flex items-center gap-2">
-            <FileText className="text-blue-600" /> Door Specification Input
+            <FileText className="text-[#00A69C]" /> Door Specification Input
           </h2>
 
           <div className="flex items-center gap-2">
@@ -187,21 +240,21 @@ const App = () => {
 
             <label 
               htmlFor="loadFile"
-              className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-300 transition cursor-pointer"
+              className={`${secondaryButtonClassName} cursor-pointer`}
             >
               <FolderOpen size={18} /> Load
             </label>
 
             <button 
               onClick={handleSave}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 transition"
+              className={secondaryButtonClassName}
             >
               <Save size={18} /> Save
             </button>
 
             <button 
               onClick={() => window.print()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
+              className={primaryButtonClassName}
             >
               <Printer size={18} /> Print Cut-List
             </button>
@@ -210,18 +263,18 @@ const App = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase">Job Name</label>
+            <label className="block text-xs font-semibold text-stone-900 uppercase">Job Name</label>
             <input 
-              className="w-full border-b-2 border-gray-200 focus:border-blue-500 outline-none py-1 text-lg"
+              className={inputLineClassName}
               value={jobName} 
               onChange={(event) => setJobName(event.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase">Door Style / Material</label>
+            <label className="block text-xs font-semibold text-stone-900 uppercase">Door Style / Material</label>
             <select 
-              className="w-full border-b-2 border-gray-200 focus:border-blue-500 outline-none py-1 text-lg bg-transparent cursor-pointer"
+              className={`${inputLineClassName} cursor-pointer`}
               value={doorType} 
               onChange={(event) => setDoorType(event.target.value)}
             >
@@ -232,64 +285,54 @@ const App = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase">Global Side Rail Width</label>
-            <DimensionInput
-              className="w-full p-1 mt-1 border rounded"
-              value={settings.sideRailWidth}
-              onChange={(value) => updateSetting("sideRailWidth", value)}
+        <div className="mb-6">
+          <button
+            type="button"
+            className={secondaryButtonClassName}
+            aria-expanded={isSettingsOpen}
+            onClick={() => setIsSettingsOpen((currentValue) => !currentValue)}
+          >
+            <SlidersHorizontal size={18} /> Settings
+            <ChevronDown
+              size={16}
+              className={`transition-transform ${isSettingsOpen ? "rotate-180" : ""}`}
             />
-          </div>
+          </button>
 
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase">Global Side Rail Thickness</label>
-            <DimensionInput
-              className="w-full p-1 mt-1 border rounded"
-              value={settings.sideRailThickness}
-              onChange={(value) => updateSetting("sideRailThickness", value)}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase">Top Stile Width (in)</label>
-            <DimensionInput
-              className="w-full p-1 mt-1 border rounded"
-              value={settings.topStileWidth}
-              onChange={(value) => updateSetting("topStileWidth", value)}
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase">Mid Stile Width (in)</label>
-            <DimensionInput
-              className="w-full p-1 mt-1 border rounded"
-              value={settings.midStileWidth}
-              onChange={(value) => updateSetting("midStileWidth", value)}
-              disabled={doorType === "1 Panel"}
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase">Bottom Stile Width (in)</label>
-            <DimensionInput
-              className="w-full p-1 mt-1 border rounded"
-              value={settings.botStileWidth}
-              onChange={(value) => updateSetting("botStileWidth", value)}
-            />
-          </div>
+          {isSettingsOpen && (
+            <div className={`mt-3 space-y-5 ${settingsPanelClassName}`}>
+              {SETTING_GROUPS.map((group) => (
+                <section key={group.title}>
+                  <h3 className="mb-3 border-b border-stone-900 pb-1 text-xs font-bold uppercase text-stone-900">
+                    {group.title}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                    {group.fields.map((field) => (
+                      <div key={field.name}>
+                        <label className="block text-[10px] font-bold text-stone-900 uppercase">
+                          {field.label}
+                        </label>
+                        <DimensionInput
+                          className={dimensionInputClassName}
+                          value={settings[field.name]}
+                          onChange={(value) => updateSetting(field.name, value)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">
-          <h3 className="font-bold text-gray-700 border-b pb-2">Door List</h3>
+          <h3 className="font-bold text-stone-900 border-b border-stone-900 pb-2">Door List</h3>
 
           {doors.map((door) => (
             <DoorRow
               key={door.id}
               door={door}
-              doorType={doorType}
               onUpdate={updateDoor}
               onRemove={removeDoor}
             />
@@ -297,7 +340,7 @@ const App = () => {
 
           <button 
             onClick={addDoor}
-            className="flex items-center gap-2 text-blue-600 font-medium hover:underline py-2"
+            className="flex items-center gap-2 text-[#00A69C] font-medium hover:text-teal-700 py-2 transition-colors"
           >
             <Plus size={18} /> Add Another Door Size
           </button>
