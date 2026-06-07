@@ -19,7 +19,7 @@ const formatPanelSize = (row) => `${toFraction(row.width)} x ${toFraction(row.he
 const formatDoorSize = (row) => `${toFraction(row.width)} x ${toFraction(row.height)}`;
 
 const CutListDocument = ({ data, doorType, jobName }) => (
-  <div className="max-w-[8.5in] mx-auto bg-white p-[0.5in] shadow-2xl border border-stone-900 rounded-sm print:bg-white print:shadow-none print:p-[0.5in] min-h-[11in] print:min-h-[9.5in] flex flex-col">
+  <div className="max-w-[8.5in] mx-auto bg-white p-[0.5in] shadow-2xl print:bg-white print:shadow-none print:p-0 min-h-[11in] print:min-h-0 flex flex-col">
     <div className={`mb-6 border-b-4 ${printBorderClassName} pb-2`}>
       <h1 className="text-2xl font-black uppercase tracking-tighter">{jobName}</h1>
       <div className={`text-lg border-2 ${printBorderClassName} px-3 py-1 mt-2 inline-block font-bold bg-stone-100 rounded-sm`}>
@@ -171,7 +171,7 @@ const CutListDocument = ({ data, doorType, jobName }) => (
     </div>
 
     <div className={`mt-8 text-[10px] text-stone-500 border-t ${printBorderClassName} pt-2 flex justify-between`}>
-      <span>Generated via Door Part Calculator</span>
+      <span>Generated via doorsolver.app</span>
       <span>Date: {new Date().toLocaleDateString()}</span>
     </div>
 
