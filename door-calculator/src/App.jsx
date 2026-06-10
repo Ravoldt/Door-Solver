@@ -7,18 +7,17 @@ import DimensionInput from "./components/DimensionInput";
 import DoorCard from "./components/DoorCard";
 import { parseFraction } from "./utils";
 
-const DEFAULT_SETTINGS = {
-  stileWidth: 5.125,
+export const DEFAULT_SETTINGS = {
+  stileWidth: 5,
   stileThickness: 1.75,
-  topRailWidth: 5.125,
+  topRailWidth: 5,
   middleRailWidth: 6.25,
-  bottomRailWidth: 9.125,
+  bottomRailWidth: 9,
   midStileCenter: 36,
   grooveDepth: 1.5,
   tongueLength: 1.5,
-  verticalPanelClearance: 0.5,
+  verticalPanelClearance: 0.875,
   horizontalPanelClearance: 0.5,
-  stileLengthExtra: 0.25,
 };
 
 const parseDimension = (value, fallback = 0) => {
@@ -30,14 +29,11 @@ const parseDimension = (value, fallback = 0) => {
   return Number.isNaN(parsedValue) ? fallback : parsedValue;
 };
 
-const createDoor = (settings = DEFAULT_SETTINGS) => ({
+const createDoor = () => ({
   id: Date.now(),
   width: 36,
   height: 96,
   qty: 1,
-  useGlobalSideRail: true,
-  stileWidth: settings.stileWidth,
-  stileThickness: settings.stileThickness,
 });
 
 const normalizeSettings = (loadedSettings = {}) => {
@@ -62,17 +58,14 @@ const normalizeSettings = (loadedSettings = {}) => {
   };
 };
 
-const normalizeDoor = (door = {}, settings = DEFAULT_SETTINGS) => {
-  const baseDoor = createDoor(settings);
+const normalizeDoor = (door = {}) => {
+  const baseDoor = createDoor();
 
   return {
     id: door.id ?? baseDoor.id,
     qty: Number(door.qty ?? baseDoor.qty) || 0,
     width: parseDimension(door.width, baseDoor.width),
     height: parseDimension(door.height, baseDoor.height),
-    useGlobalSideRail: door.useGlobalSideRail !== false,
-    stileWidth: parseDimension(door.stileWidth, settings.stileWidth),
-    stileThickness: parseDimension(door.stileThickness, settings.stileThickness),
   };
 };
 
@@ -124,6 +117,15 @@ const App = () => {
   const [jobName, setJobName] = useState(() => {
     return localStorage.getItem("door_calculator_jobName") ?? "Job Name";
   });
+  const [species, setSpecies] = useState(() => {
+    return localStorage.getItem("door_calculator_species") ?? "Poplar";
+  });
+  const [profile, setProfile] = useState(() => {
+    return localStorage.getItem("door_calculator_profile") ?? "Shaker";
+  });
+  const [finish, setFinish] = useState(() => {
+    return localStorage.getItem("door_calculator_finish") ?? "Paint";
+  });
   const [settings, setSettings] = useState(() => {
     try {
       const saved = localStorage.getItem("door_calculator_settings");
@@ -151,6 +153,18 @@ const App = () => {
   }, [jobName]);
 
   useEffect(() => {
+    localStorage.setItem("door_calculator_species", species);
+  }, [species]);
+
+  useEffect(() => {
+    localStorage.setItem("door_calculator_profile", profile);
+  }, [profile]);
+
+  useEffect(() => {
+    localStorage.setItem("door_calculator_finish", finish);
+  }, [finish]);
+
+  useEffect(() => {
     localStorage.setItem("door_calculator_settings", JSON.stringify(settings));
   }, [settings]);
 
@@ -158,7 +172,7 @@ const App = () => {
     localStorage.setItem("door_calculator_doors", JSON.stringify(doors));
   }, [doors]);
 
-  const data = useMemo(() => calculateData(doors, settings, doorType), [doors, settings, doorType]);
+  const data = useMemo(() => calculateData(doors, settings, doorType, profile), [doors, settings, doorType, profile]);
 
   const updateSetting = (field, value) => {
     setSettings((currentSettings) => ({
@@ -173,6 +187,9 @@ const App = () => {
       doorType,
       doors,
       settings,
+      species,
+      profile,
+      finish,
       appVersion: "1.0",
     };
 
@@ -211,12 +228,15 @@ const App = () => {
         }
 
         const normalizedSettings = normalizeSettings(loadedState.settings);
-        const normalizedDoors = loadedState.doors.map((door) => normalizeDoor(door, normalizedSettings));
+        const normalizedDoors = loadedState.doors.map((door) => normalizeDoor(door));
 
         setJobName(loadedState.jobName);
         setDoorType(loadedState.doorType);
         setSettings(normalizedSettings);
         setDoors(normalizedDoors);
+        if (loadedState.species) setSpecies(loadedState.species);
+        if (loadedState.profile) setProfile(loadedState.profile);
+        if (loadedState.finish) setFinish(loadedState.finish);
       } catch (error) {
         console.error("Failed to load or parse file:", error);
         toast.error("Failed to load file. It may be corrupted.");
@@ -241,6 +261,9 @@ const App = () => {
       setSettings(DEFAULT_SETTINGS);
       setJobName("Job Name");
       setDoorType("2 Panel");
+      setSpecies("Poplar");
+      setProfile("Shaker");
+      setFinish("Stain");
       toast.success("Calculator reset successfully");
     }
   };
@@ -250,15 +273,6 @@ const App = () => {
       currentDoors.map((door) => {
         if (door.id !== id) {
           return door;
-        }
-
-        if (field === "useGlobalSideRail") {
-          return {
-            ...door,
-            useGlobalSideRail: value,
-            stileWidth: !value && !door.stileWidth ? settings.stileWidth : door.stileWidth,
-            stileThickness: !value && !door.stileThickness ? settings.stileThickness : door.stileThickness,
-          };
         }
 
         return { ...door, [field]: value };
@@ -303,18 +317,16 @@ const App = () => {
                     key={style.id}
                     type="button"
                     onClick={() => setDoorType(style.id)}
-                    className={`flex-none w-40 p-4 rounded-sm border-2 text-left transition-all duration-200 cursor-pointer ${
-                      isSelected
-                        ? "border-[#00A69C] bg-teal-50/20 text-stone-900 shadow-sm"
-                        : "border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-400 hover:bg-stone-100/50"
-                    }`}
+                    className={`flex-none w-40 p-4 rounded-sm border-2 text-left transition-all duration-200 cursor-pointer ${isSelected
+                      ? "border-[#00A69C] bg-teal-50/20 text-stone-900 shadow-sm"
+                      : "border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-400 hover:bg-stone-100/50"
+                      }`}
                   >
                     {/* SVG Sketch Placeholder */}
-                    <div className={`aspect-square w-full rounded border flex flex-col items-center justify-center mb-3 transition-colors ${
-                      isSelected
-                        ? "border-teal-300 bg-teal-50/50"
-                        : "border-dashed border-stone-300 bg-stone-100"
-                    }`}>
+                    <div className={`aspect-square w-full rounded border flex flex-col items-center justify-center mb-3 transition-colors ${isSelected
+                      ? "border-teal-300 bg-teal-50/50"
+                      : "border-dashed border-stone-300 bg-stone-100"
+                      }`}>
                       <div className={`w-8 border-b-2 mb-1.5 ${isSelected ? "border-[#00A69C]" : "border-stone-400"}`}></div>
                       <span className="text-[10px] uppercase font-bold tracking-wider opacity-60">SVG Sketch</span>
                     </div>
@@ -330,6 +342,84 @@ const App = () => {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Species, Profile and Finish row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {/* Species Selection */}
+            <div>
+              <label className="block text-xs font-semibold text-stone-900 uppercase mb-2">Wood Species</label>
+              <select
+                value={species}
+                onChange={(e) => setSpecies(e.target.value)}
+                className="w-full border-b-2 border-stone-900 focus:border-[#00A69C] outline-none py-1.5 text-lg bg-transparent cursor-pointer"
+              >
+                <option value="Poplar">Poplar</option>
+                <option value="Red Oak">Red Oak</option>
+                <option value="White Oak">White Oak</option>
+                <option value="Maple">Maple</option>
+                <option value="Hickory">Hickory</option>
+                <option value="Clear Pine">Clear Pine</option>
+                <option value="Knotty Pine">Knotty Pine</option>
+                <option value="Knotty Alder">Knotty Alder</option>
+                <option value="Cherry">Cherry</option>
+                <option value="Walnut">Walnut</option>
+              </select>
+            </div>
+
+            {/* Profile Selection Toggle */}
+            <div>
+              <label className="block text-xs font-semibold text-stone-900 uppercase mb-2">Profile</label>
+              <div className="flex border border-stone-900 rounded-sm overflow-hidden h-11">
+                <button
+                  type="button"
+                  onClick={() => setProfile("Shaker")}
+                  className={`flex-1 font-bold text-sm transition-colors cursor-pointer ${profile === "Shaker"
+                    ? "bg-[#00A69C] text-white"
+                    : "bg-white text-stone-900 hover:bg-stone-50"
+                    }`}
+                >
+                  Shaker
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProfile("Ovolo")}
+                  className={`flex-1 font-bold text-sm border-l border-stone-900 transition-colors cursor-pointer ${profile === "Ovolo"
+                    ? "bg-[#00A69C] text-white"
+                    : "bg-white text-stone-900 hover:bg-stone-50"
+                    }`}
+                >
+                  Ovolo
+                </button>
+              </div>
+            </div>
+
+            {/* Finish Selection Toggle */}
+            <div>
+              <label className="block text-xs font-semibold text-stone-900 uppercase mb-2">Finish</label>
+              <div className="flex border border-stone-900 rounded-sm overflow-hidden h-11">
+                <button
+                  type="button"
+                  onClick={() => setFinish("Stain")}
+                  className={`flex-1 font-bold text-sm transition-colors cursor-pointer ${finish === "Stain"
+                    ? "bg-[#00A69C] text-white"
+                    : "bg-white text-stone-900 hover:bg-stone-50"
+                    }`}
+                >
+                  Stain
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFinish("Paint")}
+                  className={`flex-1 font-bold text-sm border-l border-stone-900 transition-colors cursor-pointer ${finish === "Paint"
+                    ? "bg-[#00A69C] text-white"
+                    : "bg-white text-stone-900 hover:bg-stone-50"
+                    }`}
+                >
+                  Paint
+                </button>
+              </div>
             </div>
           </div>
 
@@ -440,7 +530,14 @@ const App = () => {
         </div>
       </div>
 
-      <CutListDocument data={data} doorType={doorType} jobName={jobName} />
+      <CutListDocument
+        data={data}
+        doorType={doorType}
+        jobName={jobName}
+        species={species}
+        profile={profile}
+        finish={finish}
+      />
     </div>
   );
 };

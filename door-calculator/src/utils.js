@@ -10,7 +10,7 @@ const FRACTIONS_BY_EIGHTH = {
 
 const EIGHTH_TOLERANCE = 0.01;
 
-export const roundDimension = (value, precision = 1000) => {
+export const roundDimension = (value, precision = 100000) => {
   const numericValue = Number(value);
 
   if (!Number.isFinite(numericValue)) {
@@ -87,31 +87,39 @@ export const toFraction = (value) => {
     return "";
   }
 
-  const roundedValue = roundDimension(value);
+  const roundedValue = roundDimension(value, 100000);
   const sign = roundedValue < 0 ? "-" : "";
   const absoluteValue = Math.abs(roundedValue);
   const whole = Math.floor(absoluteValue);
   const fraction = absoluteValue - whole;
-  const nearestEighth = Math.round(fraction * 8);
-  const nearestFraction = nearestEighth / 8;
 
-  if (Math.abs(fraction - nearestFraction) >= EIGHTH_TOLERANCE) {
-    return `${sign}${formatDecimalInput(absoluteValue)}"`;
-  }
+  const thirtySeconds = Math.round(fraction * 32);
 
-  if (nearestEighth === 0) {
+  if (thirtySeconds === 0) {
     return `${sign}${whole}"`;
   }
-
-  if (nearestEighth === 8) {
+  if (thirtySeconds === 32) {
     return `${sign}${whole + 1}"`;
   }
 
-  const fractionLabel = FRACTIONS_BY_EIGHTH[nearestEighth];
-
-  if (!whole) {
-    return `${sign}${fractionLabel}"`;
+  if (thirtySeconds % 2 === 0) {
+    const sixteenths = thirtySeconds / 2;
+    const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+    const divisor = gcd(sixteenths, 16);
+    const num = sixteenths / divisor;
+    const den = 16 / divisor;
+    const fracStr = `${num}/${den}`;
+    return whole > 0 ? `${sign}${whole} ${fracStr}"` : `${sign}${fracStr}"`;
+  } else {
+    const sixteenths = (thirtySeconds - 1) / 2;
+    let baseFracStr = "";
+    if (sixteenths > 0) {
+      const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+      const divisor = gcd(sixteenths, 16);
+      const num = sixteenths / divisor;
+      const den = 16 / divisor;
+      baseFracStr = ` ${num}/${den}`;
+    }
+    return `${sign}${whole}${baseFracStr}"|+1/32`;
   }
-
-  return `${sign}${whole} ${fractionLabel}"`;
 };

@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { toFraction } from "../utils";
 
 const printBorderClassName = "border-stone-900";
@@ -14,18 +15,52 @@ const renderEmptyRows = (count, prefix) =>
     </tr>
   ));
 
-const formatLumberSize = (row) => `${toFraction(row.thickness)} x ${toFraction(row.width)} x ${toFraction(row.length)}`;
-const formatPanelSize = (row) => `${toFraction(row.width)} x ${toFraction(row.height)}`;
-const formatDoorSize = (row) => `${toFraction(row.width)} x ${toFraction(row.height)}`;
+const renderFraction = (str) => {
+  if (!str) return "";
+  const [base, superText] = str.split("|");
+  if (!superText) return base;
+  const cleanBase = base.replace(/"$/, "");
+  return (
+    <span>
+      {cleanBase}
+      <sup className="text-[10px] font-normal text-stone-500 leading-none">{superText}</sup>"
+    </span>
+  );
+};
 
-const CutListDocument = ({ data, doorType, jobName }) => (
-  <div className="max-w-[8.5in] mx-auto bg-white p-[0.5in] shadow-2xl print:bg-white print:shadow-none print:p-0 min-h-[11in] print:min-h-0 flex flex-col">
-    <div className={`mb-6 border-b-4 ${printBorderClassName} pb-2`}>
-      <h1 className="text-2xl font-black uppercase tracking-tighter">{jobName}</h1>
-      <div className={`text-lg border-2 ${printBorderClassName} px-3 py-1 mt-2 inline-block font-bold bg-stone-100 rounded-sm`}>
-        {doorType} Door
+const formatLumberSize = (row) => (
+  <span>
+    {renderFraction(toFraction(row.thickness))} x {renderFraction(toFraction(row.width))} x {renderFraction(toFraction(row.length))}
+  </span>
+);
+const formatPanelSize = (row) => (
+  <span>
+    {renderFraction(toFraction(row.width))} x {renderFraction(toFraction(row.height))}
+  </span>
+);
+const formatDoorSize = (row) => (
+  <span>
+    {renderFraction(toFraction(row.width))} x {renderFraction(toFraction(row.height))}
+  </span>
+);
+
+const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) => {
+  const totalQty = data.doorSummaries.reduce((sum, d) => sum + d.qty, 0);
+  const styleName = (doorType || "")
+    .replace(/\b1\b/gi, "one")
+    .replace(/\b2\b/gi, "two")
+    .replace(/\b3\b/gi, "three")
+    .replace(/\b4\b/gi, "four");
+  const subtitle = `${totalQty} ${(finish || "").toUpperCase()} GRADE ${(species || "").toUpperCase()} ${styleName.toUpperCase()} ${(profile || "").toUpperCase()} STYLE`;
+
+  return (
+    <div className="max-w-[8.5in] mx-auto bg-white p-[0.5in] shadow-2xl print:bg-white print:shadow-none print:p-0 min-h-[11in] print:min-h-0 flex flex-col">
+      <div className={`mb-6 border-b-4 ${printBorderClassName} pb-2`}>
+        <h1 className="text-2xl font-black uppercase tracking-tighter mb-1">{jobName}</h1>
+        <div className="text-sm font-bold tracking-wider text-stone-700">
+          {subtitle}
+        </div>
       </div>
-    </div>
 
     <div className="grid grid-cols-2 gap-8 flex-grow">
       <div className="space-y-6">
@@ -38,7 +73,7 @@ const CutListDocument = ({ data, doorType, jobName }) => (
               </tr>
             </thead>
             <tbody>
-              {data.sideRails.map((row, index) => (
+              {data.stiles.map((row, index) => (
                 <tr key={`side-rail-${index}`}>
                   <td className={`${cellClassName} p-2 text-center font-bold`}>{row.qty}</td>
                   <td className={`${cellClassName} p-2 text-center`}>{formatLumberSize(row)}</td>
@@ -58,23 +93,15 @@ const CutListDocument = ({ data, doorType, jobName }) => (
               </tr>
             </thead>
             <tbody>
-              {data.panelSection1.map((row, index) => (
-                <tr key={`panel-1-${index}`}>
-                  <td className={`${cellClassName} p-2 text-center font-bold`}>{row.qty}</td>
-                  <td className={`${cellClassName} p-2 text-center`}>
-                    {formatPanelSize(row)}{" "}
-                    {row.label && <span className="text-[10px] text-stone-600">{row.label}</span>}
-                  </td>
-                </tr>
-              ))}
-
-              {doorType === "2 Panel" && (
-                <>
-                  <tr className="bg-stone-100 h-2">
-                    <td colSpan="2" className={cellClassName}></td>
-                  </tr>
-                  {data.panelSection2.map((row, index) => (
-                    <tr key={`panel-2-${index}`}>
+              {data.panels.map((group, groupIndex) => (
+                <Fragment key={group.section}>
+                  {groupIndex > 0 && (
+                    <tr className="bg-stone-100 h-2">
+                      <td colSpan="2" className={cellClassName}></td>
+                    </tr>
+                  )}
+                  {group.items.map((row, index) => (
+                    <tr key={`${group.section}-${index}`}>
                       <td className={`${cellClassName} p-2 text-center font-bold`}>{row.qty}</td>
                       <td className={`${cellClassName} p-2 text-center`}>
                         {formatPanelSize(row)}{" "}
@@ -82,10 +109,12 @@ const CutListDocument = ({ data, doorType, jobName }) => (
                       </td>
                     </tr>
                   ))}
-                </>
+                </Fragment>
+              ))}
+              {renderEmptyRows(
+                Math.max(0, 4 - data.panels.reduce((sum, g) => sum + g.items.length, 0)),
+                "empty-panel",
               )}
-
-              {renderEmptyRows(4, "empty-panel")}
             </tbody>
           </table>
         </section>
@@ -101,7 +130,7 @@ const CutListDocument = ({ data, doorType, jobName }) => (
               </tr>
             </thead>
             <tbody>
-              {data.topStiles.map((row, index) => (
+              {data.rails.map((row, index) => (
                 <tr key={`top-stile-${index}`}>
                   <td className={`${cellClassName} p-2 text-center font-bold`}>{row.qty}</td>
                   <td className={`${cellClassName} p-2 text-center`}>
@@ -116,7 +145,7 @@ const CutListDocument = ({ data, doorType, jobName }) => (
                   <tr className={dividerRowClassName}>
                     <td colSpan="2" className={cellClassName}></td>
                   </tr>
-                  {data.midStiles.map((row, index) => (
+                  {data.middleRails.map((row, index) => (
                     <tr key={`mid-stile-${index}`}>
                       <td className={`${cellClassName} p-2 text-center font-bold`}>{row.qty}</td>
                       <td className={`${cellClassName} p-2 text-center`}>
@@ -131,7 +160,7 @@ const CutListDocument = ({ data, doorType, jobName }) => (
               <tr className={dividerRowClassName}>
                 <td colSpan="2" className={cellClassName}></td>
               </tr>
-              {data.botStiles.map((row, index) => (
+              {data.bottomRails.map((row, index) => (
                 <tr key={`bot-stile-${index}`}>
                   <td className={`${cellClassName} p-2 text-center font-bold`}>{row.qty}</td>
                   <td className={`${cellClassName} p-2 text-center`}>
@@ -192,6 +221,7 @@ const CutListDocument = ({ data, doorType, jobName }) => (
       }
     `}</style>
   </div>
-);
+  );
+};
 
 export default CutListDocument;

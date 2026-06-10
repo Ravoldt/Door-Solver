@@ -2,7 +2,7 @@ import { Trash2, Plus, Minus } from "lucide-react";
 import DimensionInput from "./DimensionInput";
 
 const DoorCard = ({ door, index, onUpdate, onRemove }) => {
-  const useGlobalSideRail = door.useGlobalSideRail !== false;
+
   const inputClassName = "w-full p-2 border border-stone-900 rounded-sm focus:border-[#00A69C] focus:ring-1 focus:ring-[#00A69C] outline-none bg-stone-50 text-stone-900 transition-colors";
   const labelClassName = "block text-xs font-bold text-stone-900 uppercase mb-1";
 
@@ -86,42 +86,6 @@ const DoorCard = ({ door, index, onUpdate, onRemove }) => {
         </div>
       </div>
 
-      {/* Stile Options */}
-      <div className="bg-stone-50 p-4 border border-stone-200 rounded-sm">
-        <div className="flex items-center">
-          <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-stone-900 uppercase select-none">
-            <input
-              type="checkbox"
-              className="w-4 h-4 accent-[#00A69C] rounded cursor-pointer"
-              checked={useGlobalSideRail}
-              onChange={(event) => onUpdate(door.id, "useGlobalSideRail", event.target.checked)}
-            />
-            Use Global Stile Width & Thickness
-          </label>
-        </div>
-
-        {!useGlobalSideRail && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 pt-3 border-t border-stone-200">
-            <div>
-              <label className={labelClassName}>Custom Stile Width (in)</label>
-              <DimensionInput
-                className={`${inputClassName} bg-white`}
-                value={door.stileWidth}
-                onChange={(value) => onUpdate(door.id, "stileWidth", value)}
-              />
-            </div>
-
-            <div>
-              <label className={labelClassName}>Custom Stile Thickness (in)</label>
-              <DimensionInput
-                className={`${inputClassName} bg-white`}
-                value={door.stileThickness}
-                onChange={(value) => onUpdate(door.id, "stileThickness", value)}
-              />
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
