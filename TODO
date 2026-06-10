@@ -1,0 +1,5 @@
+add static svg previews to style selection card
+add a preview button to each door card with a to scale svg of the door based on the current settings
+change settings so only settings that apply to the currently selected style are available to change
+add dark mode with system preference toggle
+add logic to handle the print layout in situations where not all doors fit onto a single page
