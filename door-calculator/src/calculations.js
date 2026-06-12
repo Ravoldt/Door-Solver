@@ -1,5 +1,5 @@
 import { roundDimension } from "./utils";
-import { DEFAULT_SETTINGS } from "./App";
+import { DEFAULT_SETTINGS, TOOLING_PROFILES } from "./doorconfig";
 
 const buildKey = (...values) =>
   values
@@ -21,19 +21,6 @@ const addGroupedItem = (map, key, item, qty) => {
 
 const mapToList = (map) => Array.from(map.values());
 
-export const TOOLING_PROFILES = {
-  shaker: {
-    name: "Shaker (Square)",
-    outsideTrim: 0.125,
-    profileTrim: 0.0625,
-  },
-  ovolo: {
-    name: "Ovolo (Bead)",
-    outsideTrim: 0.125,
-    profileTrim: 0.03125,
-  }
-};
-
 export const calculateData = (doors, settings, doorType, profile) => {
   const stilesMap = new Map();
   const railsMap = new Map();
@@ -50,7 +37,7 @@ export const calculateData = (doors, settings, doorType, profile) => {
     topRailWidth,
     middleRailWidth,
     bottomRailWidth,
-    midStileCenter,
+    heightToMiddleRail,
     grooveDepth,
     tongueLength,
     verticalPanelClearance,
@@ -164,10 +151,10 @@ export const calculateData = (doors, settings, doorType, profile) => {
       );
       const panelHeightAllowance = (grooveDepth * 2) - verticalPanelClearance;
       const lowerPanelHeight = roundDimension(
-        midStileCenter - bottomRailWidth - (middleRailWidth / 2) + panelHeightAllowance,
+        heightToMiddleRail - bottomRailWidth - (middleRailWidth / 2) + panelHeightAllowance,
       );
       const upperPanelHeight = roundDimension(
-        height - midStileCenter - topRailWidth - (middleRailWidth / 2) + panelHeightAllowance,
+        height - heightToMiddleRail - topRailWidth - (middleRailWidth / 2) + panelHeightAllowance,
       );
 
       addPanelItem("upper", panelWidth, upperPanelHeight, "(Upper)", qty);

@@ -6,19 +6,20 @@ import CutListDocument from "./components/CutListDocument";
 import DimensionInput from "./components/DimensionInput";
 import DoorCard from "./components/DoorCard";
 import { parseFraction } from "./utils";
+import { DEFAULT_SETTINGS, STYLE_REQUIRED_SETTINGS, DOOR_STYLES } from "./doorconfig";
 
-export const DEFAULT_SETTINGS = {
-  stileWidth: 5,
-  stileThickness: 1.75,
-  topRailWidth: 5,
-  middleRailWidth: 6.25,
-  bottomRailWidth: 9,
-  midStileCenter: 36,
-  grooveDepth: 1.5,
-  tongueLength: 1.5,
-  verticalPanelClearance: 0.875,
-  horizontalPanelClearance: 0.5,
-};
+export const PREDEFINED_SPECIES = [
+  "Poplar",
+  "Red Oak",
+  "White Oak",
+  "Maple",
+  "Hickory",
+  "Clear Pine",
+  "Knotty Pine",
+  "Knotty Alder",
+  "Cherry",
+  "Walnut",
+];
 
 const parseDimension = (value, fallback = 0) => {
   if (value == null || value === "") {
@@ -29,10 +30,10 @@ const parseDimension = (value, fallback = 0) => {
   return Number.isNaN(parsedValue) ? fallback : parsedValue;
 };
 
-const createDoor = () => ({
+const createDoor = (width = 36, height = 96) => ({
   id: Date.now(),
-  width: 36,
-  height: 96,
+  width,
+  height,
   qty: 1,
 });
 
@@ -44,7 +45,7 @@ const normalizeSettings = (loadedSettings = {}) => {
     topRailWidth: parseDimension(loadedSettings.topRailWidth, DEFAULT_SETTINGS.topRailWidth),
     middleRailWidth: parseDimension(loadedSettings.middleRailWidth, DEFAULT_SETTINGS.middleRailWidth),
     bottomRailWidth: parseDimension(loadedSettings.bottomRailWidth, DEFAULT_SETTINGS.bottomRailWidth),
-    midStileCenter: parseDimension(loadedSettings.midStileCenter, DEFAULT_SETTINGS.midStileCenter),
+    heightToMiddleRail: parseDimension(loadedSettings.heightToMiddleRail, DEFAULT_SETTINGS.heightToMiddleRail),
     grooveDepth: parseDimension(loadedSettings.grooveDepth, DEFAULT_SETTINGS.grooveDepth),
     tongueLength: parseDimension(loadedSettings.tongueLength, DEFAULT_SETTINGS.tongueLength),
     verticalPanelClearance: parseDimension(
@@ -96,7 +97,7 @@ const SETTING_GROUPS = [
       { name: "topRailWidth", label: "Top Rail Width" },
       { name: "middleRailWidth", label: "Middle Rail Width" },
       { name: "bottomRailWidth", label: "Bottom Rail Width" },
-      { name: "midStileCenter", label: "Mid-Stile Center" },
+      { name: "heightToMiddleRail", label: "Height to Middle Rail" },
     ],
   },
   {
@@ -117,9 +118,17 @@ const App = () => {
   const [jobName, setJobName] = useState(() => {
     return localStorage.getItem("door_calculator_jobName") ?? "Job Name";
   });
-  const [species, setSpecies] = useState(() => {
-    return localStorage.getItem("door_calculator_species") ?? "Poplar";
+  const [selectedSpecies, setSelectedSpecies] = useState(() => {
+    const saved = localStorage.getItem("door_calculator_species") ?? "Poplar";
+    return PREDEFINED_SPECIES.includes(saved) ? saved : "Custom";
   });
+  const [customText, setCustomText] = useState(() => {
+    const saved = localStorage.getItem("door_calculator_species") ?? "Poplar";
+    return PREDEFINED_SPECIES.includes(saved) ? "" : saved;
+  });
+  const [isSpeciesDropdownOpen, setIsSpeciesDropdownOpen] = useState(false);
+
+  const species = selectedSpecies === "Custom" ? customText : selectedSpecies;
   const [profile, setProfile] = useState(() => {
     return localStorage.getItem("door_calculator_profile") ?? "Shaker";
   });
@@ -138,9 +147,9 @@ const App = () => {
   const [doors, setDoors] = useState(() => {
     try {
       const saved = localStorage.getItem("door_calculator_doors");
-      return saved ? JSON.parse(saved) : [createDoor(DEFAULT_SETTINGS)];
+      return saved ? JSON.parse(saved) : [createDoor()];
     } catch {
-      return [createDoor(DEFAULT_SETTINGS)];
+      return [createDoor()];
     }
   });
 
@@ -234,7 +243,16 @@ const App = () => {
         setDoorType(loadedState.doorType);
         setSettings(normalizedSettings);
         setDoors(normalizedDoors);
-        if (loadedState.species) setSpecies(loadedState.species);
+        if (loadedState.species) {
+          const loadedSp = loadedState.species;
+          if (PREDEFINED_SPECIES.includes(loadedSp)) {
+            setSelectedSpecies(loadedSp);
+            setCustomText("");
+          } else {
+            setSelectedSpecies("Custom");
+            setCustomText(loadedSp);
+          }
+        }
         if (loadedState.profile) setProfile(loadedState.profile);
         if (loadedState.finish) setFinish(loadedState.finish);
       } catch (error) {
@@ -248,7 +266,13 @@ const App = () => {
   };
 
   const addDoor = () => {
-    setDoors((currentDoors) => [createDoor(settings), ...currentDoors]);
+    setDoors((currentDoors) => {
+      const prevDoor = currentDoors[0];
+      const newDoor = prevDoor
+        ? createDoor(prevDoor.width, prevDoor.height)
+        : createDoor();
+      return [newDoor, ...currentDoors];
+    });
   };
 
   const removeDoor = (id) => {
@@ -257,11 +281,12 @@ const App = () => {
 
   const handleClearAll = () => {
     if (window.confirm("Are you sure you want to clear all door sizes and reset all settings?")) {
-      setDoors([createDoor(settings)]);
+      setDoors([createDoor()]);
       setSettings(DEFAULT_SETTINGS);
       setJobName("Job Name");
       setDoorType("2 Panel");
-      setSpecies("Poplar");
+      setSelectedSpecies("Poplar");
+      setCustomText("");
       setProfile("Shaker");
       setFinish("Stain");
       toast.success("Calculator reset successfully");
@@ -306,11 +331,7 @@ const App = () => {
           <div className="mb-6">
             <label className="block text-xs font-semibold text-stone-900 uppercase mb-3">Door Style / Material</label>
             <div className="flex gap-4 overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-50">
-              {[
-                { id: "1 Panel", label: "1 Panel" },
-                { id: "2 Panel", label: "2 Panel" },
-                { id: "3 Panel", label: "3 Panel" },
-              ].map((style) => {
+              {DOOR_STYLES.map((style) => {
                 const isSelected = doorType === style.id;
                 return (
                   <button
@@ -348,24 +369,65 @@ const App = () => {
           {/* Species, Profile and Finish row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             {/* Species Selection */}
-            <div>
-              <label className="block text-xs font-semibold text-stone-900 uppercase mb-2">Wood Species</label>
-              <select
-                value={species}
-                onChange={(e) => setSpecies(e.target.value)}
-                className="w-full border-b-2 border-stone-900 focus:border-[#00A69C] outline-none py-1.5 text-lg bg-transparent cursor-pointer"
-              >
-                <option value="Poplar">Poplar</option>
-                <option value="Red Oak">Red Oak</option>
-                <option value="White Oak">White Oak</option>
-                <option value="Maple">Maple</option>
-                <option value="Hickory">Hickory</option>
-                <option value="Clear Pine">Clear Pine</option>
-                <option value="Knotty Pine">Knotty Pine</option>
-                <option value="Knotty Alder">Knotty Alder</option>
-                <option value="Cherry">Cherry</option>
-                <option value="Walnut">Walnut</option>
-              </select>
+            <div className="relative">
+              <label className="block text-xs font-semibold text-stone-900 uppercase mb-2">
+                Wood Species
+              </label>
+
+              <div className="relative flex items-center border-b-2 border-stone-900 focus-within:border-[#00A69C] bg-transparent">
+                {/* Hybrid Input */}
+                <input
+                  type="text"
+                  value={selectedSpecies === "Custom" ? customText : selectedSpecies}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  readOnly={selectedSpecies !== "Custom"}
+                  // If it's a preset, clicking the input opens the menu. If custom, let them click to type.
+                  onClick={() => {
+                    if (selectedSpecies !== "Custom") setIsSpeciesDropdownOpen(!isSpeciesDropdownOpen);
+                  }}
+                  className={`w-full py-1.5 pl-0 pr-8 text-lg bg-transparent text-stone-900 focus:outline-none 
+                    ${selectedSpecies !== "Custom" ? "cursor-pointer" : "cursor-text"}`}
+                  placeholder={selectedSpecies === "Custom" ? "Enter custom species..." : ""}
+                />
+
+                {/* Toggle Arrow */}
+                <button
+                  type="button"
+                  onClick={() => setIsSpeciesDropdownOpen(!isSpeciesDropdownOpen)}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-stone-900 hover:text-[#00A69C] focus:outline-none"
+                >
+                  <ChevronDown size={18} />
+                </button>
+              </div>
+
+              {/* Wide Dropdown Menu */}
+              {isSpeciesDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsSpeciesDropdownOpen(false)}
+                  />
+                  <ul className="absolute left-0 top-full z-20 mt-1 max-h-60 w-full overflow-auto border border-stone-900 bg-white shadow-lg rounded-sm">
+                    {[...PREDEFINED_SPECIES, "Custom"].map((option) => (
+                      <li
+                        key={option}
+                        onClick={() => {
+                          setSelectedSpecies(option);
+                          setIsSpeciesDropdownOpen(false);
+                          if (option !== "Custom") {
+                            setCustomText(""); // Clear custom text if they switch back to a preset
+                          }
+                        }}
+                        className={`cursor-pointer px-4 py-2 hover:bg-teal-50 hover:text-teal-700
+                          ${selectedSpecies === option ? "bg-stone-100 font-bold" : "text-stone-850"}
+                        `}
+                      >
+                        {option}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
 
             {/* Profile Selection Toggle */}
@@ -482,27 +544,37 @@ const App = () => {
 
           {isSettingsOpen && (
             <div className={`mt-4 space-y-5 ${settingsPanelClassName}`}>
-              {SETTING_GROUPS.map((group) => (
-                <section key={group.title}>
-                  <h3 className="mb-3 border-b border-stone-900 pb-1 text-xs font-bold uppercase text-stone-900">
-                    {group.title}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                    {group.fields.map((field) => (
-                      <div key={field.name}>
-                        <label className="block text-[10px] font-bold text-stone-900 uppercase">
-                          {field.label}
-                        </label>
-                        <DimensionInput
-                          className={dimensionInputClassName}
-                          value={settings[field.name]}
-                          onChange={(value) => updateSetting(field.name, value)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
+              {SETTING_GROUPS.map((group) => {
+                const availableFields = group.fields.filter(
+                  (field) => STYLE_REQUIRED_SETTINGS[doorType]?.includes(field.name)
+                );
+
+                if (availableFields.length === 0) {
+                  return null;
+                }
+
+                return (
+                  <section key={group.title}>
+                    <h3 className="mb-3 border-b border-stone-900 pb-1 text-xs font-bold uppercase text-stone-900">
+                      {group.title}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                      {availableFields.map((field) => (
+                        <div key={field.name}>
+                          <label className="block text-[10px] font-bold text-stone-900 uppercase">
+                            {field.label}
+                          </label>
+                          <DimensionInput
+                            className={dimensionInputClassName}
+                            value={settings[field.name]}
+                            onChange={(value) => updateSetting(field.name, value)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           )}
         </div>
