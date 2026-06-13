@@ -19,6 +19,3 @@ add visible validation instead of silently correcting invalid input
     - block printing/saving if there's errors
     - instead of silently fixing errors, add helper text explaining why it's wrong
 fix notes div and allow custom input field for typed notes
-fix print layout
-    - remove empty rows as space runs outside
-    - move entire categories to a second page starting with notes, then door sizes
