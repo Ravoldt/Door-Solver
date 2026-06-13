@@ -7,8 +7,10 @@ import DimensionInput from "./components/DimensionInput";
 import DoorCard from "./components/DoorCard";
 import { parseFraction } from "./utils";
 import { DEFAULT_SETTINGS, STYLE_REQUIRED_SETTINGS, DOOR_STYLES } from "./doorconfig";
+import SettingsWorkspace from "./components/SettingsWorkspace";
+import MiniDoorStyleSvg from "./components/MiniDoorStyleSvg";
 
-export const PREDEFINED_SPECIES = [
+const PREDEFINED_SPECIES = [
   "Poplar",
   "Red Oak",
   "White Oak",
@@ -78,10 +80,6 @@ const dangerButtonClassName =
   "bg-stone-100 text-red-600 border border-stone-300 px-4 py-2 rounded-sm flex items-center gap-2 hover:bg-red-50 hover:text-red-700 hover:border-red-500 transition-colors cursor-pointer";
 const inputLineClassName =
   "w-full border-b-2 border-stone-900 focus:border-[#00A69C] outline-none py-1 text-lg bg-transparent";
-const settingsPanelClassName =
-  "p-4 bg-white rounded-sm border border-stone-900";
-const dimensionInputClassName =
-  "w-full p-1 mt-1 border border-stone-900 rounded-sm focus:border-[#00A69C] outline-none";
 
 const SETTING_GROUPS = [
   {
@@ -343,13 +341,14 @@ const App = () => {
                       : "border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-400 hover:bg-stone-100/50"
                       }`}
                   >
-                    {/* SVG Sketch Placeholder */}
-                    <div className={`aspect-square w-full rounded border flex flex-col items-center justify-center mb-3 transition-colors ${isSelected
-                      ? "border-teal-300 bg-teal-50/50"
-                      : "border-dashed border-stone-300 bg-stone-100"
+                    {/* Dynamic Scaled SVG Thumbnail */}
+                    <div className={`aspect-square w-full rounded border flex items-center justify-center p-2 mb-3 transition-all duration-200 ${isSelected
+                      ? "border-teal-400 bg-teal-50/25 shadow-inner"
+                      : "border-stone-200 bg-stone-100/50 hover:bg-stone-100"
                       }`}>
-                      <div className={`w-8 border-b-2 mb-1.5 ${isSelected ? "border-[#00A69C]" : "border-stone-400"}`}></div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider opacity-60">SVG Sketch</span>
+                      <div className="w-16 h-16 flex items-center justify-center">
+                        <MiniDoorStyleSvg styleId={style.id} />
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -486,25 +485,23 @@ const App = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={addDoor}
-              className={primaryButtonClassName}
-            >
-              <Plus size={18} /> Add New Door
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={addDoor}
+                className={primaryButtonClassName}
+              >
+                <Plus size={18} /> Add New Door
+              </button>
 
-            <button
-              type="button"
-              className={secondaryButtonClassName}
-              aria-expanded={isSettingsOpen}
-              onClick={() => setIsSettingsOpen((currentValue) => !currentValue)}
-            >
-              <SlidersHorizontal size={18} /> Settings
-              <ChevronDown
-                size={16}
-                className={`transition-transform ${isSettingsOpen ? "rotate-180" : ""}`}
-              />
-            </button>
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-2.5 rounded-sm border border-stone-300 bg-stone-100 text-stone-900 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-500 transition-colors cursor-pointer"
+                title="Configure defaults and preview style"
+              >
+                <SlidersHorizontal size={18} className="stroke-[2.5]" />
+              </button>
+            </div>
 
             <input
               type="file"
@@ -542,41 +539,7 @@ const App = () => {
             </button>
           </div>
 
-          {isSettingsOpen && (
-            <div className={`mt-4 space-y-5 ${settingsPanelClassName}`}>
-              {SETTING_GROUPS.map((group) => {
-                const availableFields = group.fields.filter(
-                  (field) => STYLE_REQUIRED_SETTINGS[doorType]?.includes(field.name)
-                );
-
-                if (availableFields.length === 0) {
-                  return null;
-                }
-
-                return (
-                  <section key={group.title}>
-                    <h3 className="mb-3 border-b border-stone-900 pb-1 text-xs font-bold uppercase text-stone-900">
-                      {group.title}
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                      {availableFields.map((field) => (
-                        <div key={field.name}>
-                          <label className="block text-[10px] font-bold text-stone-900 uppercase">
-                            {field.label}
-                          </label>
-                          <DimensionInput
-                            className={dimensionInputClassName}
-                            value={settings[field.name]}
-                            onChange={(value) => updateSetting(field.name, value)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
-          )}
+          {/* Settings panel has been moved to SettingsWorkspace side drawer & preview modal */}
         </div>
 
         {/* Door Size Stack */}
@@ -584,7 +547,7 @@ const App = () => {
           <div className="flex items-center justify-between border-b border-stone-900 pb-2">
             <h3 className="font-bold text-stone-900">Door Sizes</h3>
             <span className="text-xs bg-stone-100 border border-stone-900 px-2 py-0.5 rounded-sm font-semibold text-stone-900">
-              Total Added: {doors.length}
+              Unique Doors: {doors.length}
             </span>
           </div>
 
@@ -609,6 +572,19 @@ const App = () => {
         species={species}
         profile={profile}
         finish={finish}
+      />
+
+      <SettingsWorkspace
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        updateSetting={updateSetting}
+        setSettings={setSettings}
+        doorType={doorType}
+        setDoorType={setDoorType}
+        doors={doors}
+        species={species}
+        updateDoor={updateDoor}
       />
     </div>
   );

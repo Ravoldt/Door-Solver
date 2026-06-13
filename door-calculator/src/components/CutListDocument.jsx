@@ -93,9 +93,6 @@ const computeLayout = (data, doorType) => {
     return height;
   };
 
-  const stilesBase = getStilesHeight(0);
-  const panelsBase = getPanelsHeight(0);
-  const railsBase = getRailsHeight(0);
   const doorSizesHeight = HEADER_H + dCount * DOOR_ROW_H + TABLE_BORDER_H;
   const notesHeight = NOTES_BOX_H;
 
@@ -188,7 +185,21 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
     .replace(/\b2\b/gi, "two")
     .replace(/\b3\b/gi, "three")
     .replace(/\b4\b/gi, "four");
-  const subtitle = `${totalQty} ${(finish || "").toUpperCase()} GRADE ${(species || "").toUpperCase()} ${styleName.toUpperCase()} ${(profile || "").toUpperCase()} STYLE`;
+
+  const toTitleCase = (str) => {
+    if (!str) return "";
+    return str
+      .toLowerCase()
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  const formattedFinish = finish ? `${toTitleCase(finish)} Grade` : "";
+  const formattedSpecies = toTitleCase(species);
+  const formattedStyle = `${toTitleCase(styleName)} ${toTitleCase(profile)}`;
+
+  const subtitle = `Qty: ${totalQty} | Finish: ${formattedFinish} | Species: ${formattedSpecies} | Style: ${formattedStyle}`;
 
   const layout = computeLayout(data, doorType);
   const hasPage2 = layout.doorSizesPage === 2 || layout.notesPage === 2;
@@ -215,11 +226,9 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
   );
 
   const renderNotesBox = () => (
-    <div className={`h-[120px] border-2 ${printBorderClassName} p-3 rounded-sm flex flex-col justify-between`}>
+    <div className="h-[120px] flex flex-col">
       <span className="text-sm font-bold uppercase tracking-wider text-stone-900">Notes</span>
-      <div className="flex-grow border-b border-stone-300 border-dashed mb-2 mt-4"></div>
-      <div className="border-b border-stone-300 border-dashed mb-2"></div>
-      <div className="border-b border-stone-300 border-dashed"></div>
+      <div className="flex-grow"></div>
     </div>
   );
 
