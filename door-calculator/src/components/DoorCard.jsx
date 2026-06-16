@@ -1,7 +1,7 @@
 import { Trash2, Plus, Minus } from "lucide-react";
 import DimensionInput from "./DimensionInput";
 
-const DoorCard = ({ door, index, onUpdate, onRemove }) => {
+const DoorCard = ({ door, index, onUpdate, onRemove, warnings = [] }) => {
 
   const inputClassName = "w-full p-2 border border-stone-900 rounded-sm focus:border-[#00A69C] focus:ring-1 focus:ring-[#00A69C] outline-none bg-stone-50 text-stone-900 transition-colors";
   const labelClassName = "block text-xs font-bold text-stone-900 uppercase mb-1";
@@ -86,6 +86,16 @@ const DoorCard = ({ door, index, onUpdate, onRemove }) => {
         </div>
       </div>
 
+      {warnings && warnings.length > 0 && (
+        <div className="mt-3 p-3 bg-amber-50 border border-amber-300 rounded-sm text-amber-900 text-xs space-y-1">
+          {warnings.map((w, idx) => (
+            <div key={idx} className="flex items-start gap-1.5 font-semibold">
+              <span className="text-amber-600 font-bold text-sm shrink-0">⚠️</span>
+              <span className="leading-5">{w.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -3,15 +3,18 @@ import { X, RotateCcw, HelpCircle, ChevronDown, Check } from "lucide-react";
 import { DEFAULT_SETTINGS, STYLE_REQUIRED_SETTINGS, DOOR_STYLES, getDoorGeometry } from "../doorconfig";
 import { toFraction, parseFraction, formatDecimalInput } from "../utils";
 import DimensionInput from "./DimensionInput";
+import { toast } from "react-hot-toast";
+import { validateDoor } from "../validation";
 
 // Detailed help descriptions for build settings
 const SETTING_DESCRIPTIONS = {
   stileWidth: "Width of the vertical side frame pieces (stiles).",
   stileThickness: "Thickness of the door frame parts.",
   topRailWidth: "Width of the top horizontal rail part.",
-  middleRailWidth: "Width of intermediate center rail parts.",
+  lockRailWidth: "Width of the center lock rail on 2-panel doors.",
+  intermediateRailWidth: "Width of the intermediate rails on 3-panel doors.",
   bottomRailWidth: "Width of the bottom horizontal rail part.",
-  heightToMiddleRail: "Height from the bottom of the door to the center of the middle rail.",
+  heightToLockRail: "Height from the bottom of the door to the center of the lock rail.",
   grooveDepth: "Depth the panels insert into the stile and rail groove slots.",
   tongueLength: "Length of rail end tongues that slot into the stiles.",
   verticalPanelClearance: "Total vertical gap allowed for panel expansion/clearance.",
@@ -32,9 +35,10 @@ const SETTING_GROUPS = [
     title: "Rails",
     fields: [
       { name: "topRailWidth", label: "Top Rail Width" },
-      { name: "middleRailWidth", label: "Middle Rail Width" },
+      { name: "lockRailWidth", label: "Lock Rail Width" },
+      { name: "intermediateRailWidth", label: "Intermediate Rail Width" },
       { name: "bottomRailWidth", label: "Bottom Rail Width" },
-      { name: "heightToMiddleRail", label: "Height to Middle Rail" },
+      { name: "heightToLockRail", label: "Height to Lock Rail" },
     ],
   },
   {
@@ -278,6 +282,12 @@ const SettingsWorkspace = ({
     return getDoorGeometry(previewWidth, previewHeight, activeSettings, doorType);
   }, [previewWidth, previewHeight, activeSettings, doorType]);
 
+  const previewWarnings = useMemo(() => {
+    const previewDoor = { width: previewWidth, height: previewHeight };
+    const { warnings } = validateDoor(previewDoor, activeSettings, doorType);
+    return warnings;
+  }, [previewWidth, previewHeight, activeSettings, doorType]);
+
   // Focus effect for drawer inputs
   useEffect(() => {
     if (focusedField) {
@@ -301,7 +311,7 @@ const SettingsWorkspace = ({
       inlineInputRef.current.focus();
       inlineInputRef.current.select();
     }
-  }, [inlineEdit]);
+  }, [inlineEdit?.fieldName]);
 
   if (!isOpen) return null;
 
@@ -337,24 +347,45 @@ const SettingsWorkspace = ({
     if (!Number.isNaN(parsed)) {
       if (inlineEdit.fieldName === "doorWidthRef") {
         if (refDoorId === "default") {
+          const proposedDoor = { width: parsed, height: previewHeight };
+          const { errors } = validateDoor(proposedDoor, activeSettings, doorType);
+          if (errors.length > 0) {
+            toast.error(errors[0].message);
+            return;
+          }
           setLocalDefaultWidth(parsed);
         } else {
           const parsedId = Number(refDoorId);
           if (!Number.isNaN(parsedId)) {
-            updateDoor(parsedId, "width", parsed);
+            const success = updateDoor(parsedId, "width", parsed);
+            if (success === false) {
+              return;
+            }
           }
         }
       } else if (inlineEdit.fieldName === "doorHeightRef") {
         if (refDoorId === "default") {
+          const proposedDoor = { width: previewWidth, height: parsed };
+          const { errors } = validateDoor(proposedDoor, activeSettings, doorType);
+          if (errors.length > 0) {
+            toast.error(errors[0].message);
+            return;
+          }
           setLocalDefaultHeight(parsed);
         } else {
           const parsedId = Number(refDoorId);
           if (!Number.isNaN(parsedId)) {
-            updateDoor(parsedId, "height", parsed);
+            const success = updateDoor(parsedId, "height", parsed);
+            if (success === false) {
+              return;
+            }
           }
         }
       } else {
-        updateSetting(inlineEdit.fieldName, parsed);
+        const success = updateSetting(inlineEdit.fieldName, parsed, { width: previewWidth, height: previewHeight });
+        if (success === false) {
+          return;
+        }
       }
     }
     setInlineEdit(null);
@@ -369,9 +400,9 @@ const SettingsWorkspace = ({
   };
 
   // Helper dimensions SVG calculation (offset to left & top for dimension stacks)
-  const minX = -26;
+  const minX = -32;
   const minY = -22;
-  const viewBoxWidth = previewWidth + 34; // 26 left padding, 8 right padding
+  const viewBoxWidth = previewWidth + 54; // 32 left padding, 22 right padding
   const viewBoxHeight = previewHeight + 30; // 22 top padding, 8 bottom padding
 
   // Helper variables for rail calculations
@@ -381,7 +412,7 @@ const SettingsWorkspace = ({
   const middleRail1 = geometry.rails.find((r) => r.id === "middle-rail-1");
 
   // Calculations for 3 Panel spacing representation
-  const availSpace = previewHeight - activeSettings.topRailWidth - activeSettings.bottomRailWidth - 2 * (activeSettings.middleRailWidth || 0);
+  const availSpace = previewHeight - activeSettings.topRailWidth - activeSettings.bottomRailWidth - 2 * (activeSettings.intermediateRailWidth || 0);
   const panelHeight3P = Math.max(0, availSpace / 3);
 
   return (
@@ -445,6 +476,17 @@ const SettingsWorkspace = ({
               </button>
             </div>
           </div>
+
+          {previewWarnings && previewWarnings.length > 0 && (
+            <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-amber-900 text-xs flex flex-col gap-1 font-semibold">
+              {previewWarnings.map((w, idx) => (
+                <div key={idx} className="flex items-center gap-1.5">
+                  <span className="text-amber-600 font-bold">⚠️</span>
+                  <span>{w.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* SVG Canvas Container */}
           <div className="flex-1 relative flex items-center justify-center bg-stone-50/50 p-6 min-h-[300px] lg:min-h-0 overflow-hidden">
@@ -532,7 +574,7 @@ const SettingsWorkspace = ({
                   let activeField = "";
                   if (r.id === "top-rail") activeField = "topRailWidth";
                   if (r.id === "bottom-rail") activeField = "bottomRailWidth";
-                  if (r.id.startsWith("middle-rail")) activeField = "middleRailWidth";
+                  if (r.id.startsWith("middle-rail")) activeField = doorType === "2 Panel" ? "lockRailWidth" : "intermediateRailWidth";
 
                   return (
                     <rect
@@ -550,13 +592,13 @@ const SettingsWorkspace = ({
                 })}
               </g>
 
-              {/* 4. Draw Center Line helper for 2 Panel Middle Height measurement */}
+              {/* 4. Draw Center Line helper for 2 Panel Lock Height measurement */}
               {doorType === "2 Panel" && (
                 <line
                   x1={-2}
-                  y1={previewHeight - activeSettings.heightToMiddleRail}
+                  y1={previewHeight - activeSettings.heightToLockRail}
                   x2={previewWidth + 2}
-                  y2={previewHeight - activeSettings.heightToMiddleRail}
+                  y2={previewHeight - activeSettings.heightToLockRail}
                   stroke="#00A69C"
                   strokeWidth={0.2}
                   strokeDasharray="1.5,1.5"
@@ -637,7 +679,7 @@ const SettingsWorkspace = ({
                 y1={0}
                 x2={0}
                 y2={previewHeight}
-                offsetX={-22}
+                offsetX={-28}
                 offsetY={0}
                 value={`${toFraction(previewHeight)}`}
                 labelText="Door Height"
@@ -646,18 +688,18 @@ const SettingsWorkspace = ({
                 onClick={handlePillClick}
               />
 
-              {/* Height to Middle Rail (2 Panel only - Middle level) */}
+              {/* Height to Lock Rail (2 Panel only - Middle level) */}
               {doorType === "2 Panel" && (
                 <DimensionLine
                   x1={0}
-                  y1={previewHeight - activeSettings.heightToMiddleRail}
+                  y1={previewHeight - activeSettings.heightToLockRail}
                   x2={0}
                   y2={previewHeight}
-                  offsetX={-16}
+                  offsetX={-19}
                   offsetY={0}
-                  value={`${toFraction(activeSettings.heightToMiddleRail)}`}
-                  labelText="Mid Ht."
-                  fieldName="heightToMiddleRail"
+                  value={`${toFraction(activeSettings.heightToLockRail)}`}
+                  labelText="Lock Ht."
+                  fieldName="heightToLockRail"
                   focusedField={focusedField}
                   onClick={handlePillClick}
                 />
@@ -680,16 +722,16 @@ const SettingsWorkspace = ({
                 />
               )}
 
-              {/* 1 Panel Vertical Chain */}
+              {/* 1 Panel Vertical Chain (Panel Height on Right Side) */}
               {doorType === "1 Panel" && (
                 <>
                   {/* Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={0}
+                    x1={previewWidth}
                     y1={activeSettings.topRailWidth}
-                    x2={0}
+                    x2={previewWidth}
                     y2={Math.max(activeSettings.topRailWidth, previewHeight - activeSettings.bottomRailWidth)}
-                    offsetX={-10}
+                    offsetX={10}
                     offsetY={0}
                     value={`${toFraction(Math.max(0, previewHeight - activeSettings.topRailWidth - activeSettings.bottomRailWidth))}`}
                     labelText="Panel Ht."
@@ -705,43 +747,43 @@ const SettingsWorkspace = ({
                 <>
                   {/* Upper Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={0}
+                    x1={previewWidth}
                     y1={activeSettings.topRailWidth}
-                    x2={0}
-                    y2={Math.max(activeSettings.topRailWidth, previewHeight - activeSettings.heightToMiddleRail - activeSettings.middleRailWidth / 2)}
-                    offsetX={-10}
+                    x2={previewWidth}
+                    y2={Math.max(activeSettings.topRailWidth, previewHeight - activeSettings.heightToLockRail - activeSettings.lockRailWidth / 2)}
+                    offsetX={10}
                     offsetY={0}
-                    value={`${toFraction(Math.max(0, previewHeight - activeSettings.heightToMiddleRail - activeSettings.middleRailWidth / 2 - activeSettings.topRailWidth))}`}
+                    value={`${toFraction(Math.max(0, previewHeight - activeSettings.heightToLockRail - activeSettings.lockRailWidth / 2 - activeSettings.topRailWidth))}`}
                     labelText="Panel Ht."
                     fieldName="upperPanelHeightRef"
                     focusedField={focusedField}
                     onClick={handlePillClick}
                   />
 
-                  {/* Middle Rail Width */}
+                  {/* Lock Rail Width */}
                   <DimensionLine
                     x1={0}
-                    y1={previewHeight - activeSettings.heightToMiddleRail - activeSettings.middleRailWidth / 2}
+                    y1={previewHeight - activeSettings.heightToLockRail - activeSettings.lockRailWidth / 2}
                     x2={0}
-                    y2={previewHeight - activeSettings.heightToMiddleRail + activeSettings.middleRailWidth / 2}
+                    y2={previewHeight - activeSettings.heightToLockRail + activeSettings.lockRailWidth / 2}
                     offsetX={-10}
                     offsetY={0}
-                    value={`${toFraction(activeSettings.middleRailWidth)}`}
-                    labelText="Mid Rail"
-                    fieldName="middleRailWidth"
+                    value={`${toFraction(activeSettings.lockRailWidth)}`}
+                    labelText="Lock Rail"
+                    fieldName="lockRailWidth"
                     focusedField={focusedField}
                     onClick={handlePillClick}
                   />
 
                   {/* Lower Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={0}
-                    y1={previewHeight - activeSettings.heightToMiddleRail + activeSettings.middleRailWidth / 2}
-                    x2={0}
-                    y2={Math.max(previewHeight - activeSettings.heightToMiddleRail + activeSettings.middleRailWidth / 2, previewHeight - activeSettings.bottomRailWidth)}
-                    offsetX={-10}
+                    x1={previewWidth}
+                    y1={previewHeight - activeSettings.heightToLockRail + activeSettings.lockRailWidth / 2}
+                    x2={previewWidth}
+                    y2={Math.max(previewHeight - activeSettings.heightToLockRail + activeSettings.lockRailWidth / 2, previewHeight - activeSettings.bottomRailWidth)}
+                    offsetX={10}
                     offsetY={0}
-                    value={`${toFraction(Math.max(0, activeSettings.heightToMiddleRail - activeSettings.middleRailWidth / 2 - activeSettings.bottomRailWidth))}`}
+                    value={`${toFraction(Math.max(0, activeSettings.heightToLockRail - activeSettings.lockRailWidth / 2 - activeSettings.bottomRailWidth))}`}
                     labelText="Panel Ht."
                     fieldName="lowerPanelHeightRef"
                     focusedField={focusedField}
@@ -755,11 +797,11 @@ const SettingsWorkspace = ({
                 <>
                   {/* Upper Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={0}
+                    x1={previewWidth}
                     y1={activeSettings.topRailWidth}
-                    x2={0}
+                    x2={previewWidth}
                     y2={activeSettings.topRailWidth + panelHeight3P}
-                    offsetX={-10}
+                    offsetX={10}
                     offsetY={0}
                     value={`${toFraction(panelHeight3P)}`}
                     labelText="Panel Ht."
@@ -768,28 +810,28 @@ const SettingsWorkspace = ({
                     onClick={handlePillClick}
                   />
 
-                  {/* Top Middle Rail Width */}
+                  {/* Top Intermediate Rail Width */}
                   <DimensionLine
                     x1={0}
                     y1={activeSettings.topRailWidth + panelHeight3P}
                     x2={0}
-                    y2={activeSettings.topRailWidth + panelHeight3P + activeSettings.middleRailWidth}
+                    y2={activeSettings.topRailWidth + panelHeight3P + activeSettings.intermediateRailWidth}
                     offsetX={-10}
                     offsetY={0}
-                    value={`${toFraction(activeSettings.middleRailWidth)}`}
-                    labelText="Mid Rail"
-                    fieldName="middleRailWidth"
+                    value={`${toFraction(activeSettings.intermediateRailWidth)}`}
+                    labelText="Inter. Rail"
+                    fieldName="intermediateRailWidth"
                     focusedField={focusedField}
                     onClick={handlePillClick}
                   />
 
                   {/* Middle Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={0}
-                    y1={activeSettings.topRailWidth + panelHeight3P + activeSettings.middleRailWidth}
-                    x2={0}
-                    y2={activeSettings.topRailWidth + 2 * panelHeight3P + activeSettings.middleRailWidth}
-                    offsetX={-10}
+                    x1={previewWidth}
+                    y1={activeSettings.topRailWidth + panelHeight3P + activeSettings.intermediateRailWidth}
+                    x2={previewWidth}
+                    y2={activeSettings.topRailWidth + 2 * panelHeight3P + activeSettings.intermediateRailWidth}
+                    offsetX={10}
                     offsetY={0}
                     value={`${toFraction(panelHeight3P)}`}
                     labelText="Panel Ht."
@@ -798,28 +840,28 @@ const SettingsWorkspace = ({
                     onClick={handlePillClick}
                   />
 
-                  {/* Bottom Middle Rail Width */}
+                  {/* Bottom Intermediate Rail Width */}
                   <DimensionLine
                     x1={0}
-                    y1={activeSettings.topRailWidth + 2 * panelHeight3P + activeSettings.middleRailWidth}
+                    y1={activeSettings.topRailWidth + 2 * panelHeight3P + activeSettings.intermediateRailWidth}
                     x2={0}
-                    y2={activeSettings.topRailWidth + 2 * panelHeight3P + 2 * activeSettings.middleRailWidth}
+                    y2={activeSettings.topRailWidth + 2 * panelHeight3P + 2 * activeSettings.intermediateRailWidth}
                     offsetX={-10}
                     offsetY={0}
-                    value={`${toFraction(activeSettings.middleRailWidth)}`}
-                    labelText="Mid Rail"
-                    fieldName="middleRailWidth"
+                    value={`${toFraction(activeSettings.intermediateRailWidth)}`}
+                    labelText="Inter. Rail"
+                    fieldName="intermediateRailWidth"
                     focusedField={focusedField}
                     onClick={handlePillClick}
                   />
 
                   {/* Lower Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={0}
-                    y1={activeSettings.topRailWidth + 2 * panelHeight3P + 2 * activeSettings.middleRailWidth}
-                    x2={0}
+                    x1={previewWidth}
+                    y1={activeSettings.topRailWidth + 2 * panelHeight3P + 2 * activeSettings.intermediateRailWidth}
+                    x2={previewWidth}
                     y2={previewHeight - activeSettings.bottomRailWidth}
-                    offsetX={-10}
+                    offsetX={10}
                     offsetY={0}
                     value={`${toFraction(panelHeight3P)}`}
                     labelText="Panel Ht."
@@ -972,7 +1014,7 @@ const SettingsWorkspace = ({
                             id={`settings-input-${field.name}`}
                             className="w-full p-2 border border-stone-900 rounded-sm focus:border-[#00A69C] outline-none font-bold text-stone-900 bg-stone-50"
                             value={activeSettings[field.name]}
-                            onChange={(value) => updateSetting(field.name, value)}
+                            onChange={(value) => updateSetting(field.name, value, { width: previewWidth, height: previewHeight })}
                             onFocus={() => {
                               setFocusedField(field.name);
                               setInlineEdit(null);

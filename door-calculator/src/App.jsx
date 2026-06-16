@@ -9,6 +9,7 @@ import { parseFraction } from "./utils";
 import { DEFAULT_SETTINGS, STYLE_REQUIRED_SETTINGS, DOOR_STYLES } from "./doorconfig";
 import SettingsWorkspace from "./components/SettingsWorkspace";
 import MiniDoorStyleSvg from "./components/MiniDoorStyleSvg";
+import { validateDoor } from "./validation";
 
 const PREDEFINED_SPECIES = [
   "Poplar",
@@ -45,9 +46,10 @@ const normalizeSettings = (loadedSettings = {}) => {
     stileWidth: parseDimension(loadedSettings.stileWidth, DEFAULT_SETTINGS.stileWidth),
     stileThickness: parseDimension(loadedSettings.stileThickness, DEFAULT_SETTINGS.stileThickness),
     topRailWidth: parseDimension(loadedSettings.topRailWidth, DEFAULT_SETTINGS.topRailWidth),
-    middleRailWidth: parseDimension(loadedSettings.middleRailWidth, DEFAULT_SETTINGS.middleRailWidth),
+    lockRailWidth: parseDimension(loadedSettings.lockRailWidth ?? loadedSettings.middleRailWidth, DEFAULT_SETTINGS.lockRailWidth),
+    intermediateRailWidth: parseDimension(loadedSettings.intermediateRailWidth ?? loadedSettings.middleRailWidth, DEFAULT_SETTINGS.intermediateRailWidth),
     bottomRailWidth: parseDimension(loadedSettings.bottomRailWidth, DEFAULT_SETTINGS.bottomRailWidth),
-    heightToMiddleRail: parseDimension(loadedSettings.heightToMiddleRail, DEFAULT_SETTINGS.heightToMiddleRail),
+    heightToLockRail: parseDimension(loadedSettings.heightToLockRail ?? loadedSettings.heightToMiddleRail, DEFAULT_SETTINGS.heightToLockRail),
     grooveDepth: parseDimension(loadedSettings.grooveDepth, DEFAULT_SETTINGS.grooveDepth),
     tongueLength: parseDimension(loadedSettings.tongueLength, DEFAULT_SETTINGS.tongueLength),
     verticalPanelClearance: parseDimension(
@@ -81,33 +83,6 @@ const dangerButtonClassName =
 const inputLineClassName =
   "w-full border-b-2 border-stone-900 focus:border-[#00A69C] outline-none py-1 text-lg bg-transparent";
 
-const SETTING_GROUPS = [
-  {
-    title: "Stiles",
-    fields: [
-      { name: "stileWidth", label: "Stile Width" },
-      { name: "stileThickness", label: "Stile Thickness" },
-    ],
-  },
-  {
-    title: "Rails",
-    fields: [
-      { name: "topRailWidth", label: "Top Rail Width" },
-      { name: "middleRailWidth", label: "Middle Rail Width" },
-      { name: "bottomRailWidth", label: "Bottom Rail Width" },
-      { name: "heightToMiddleRail", label: "Height to Middle Rail" },
-    ],
-  },
-  {
-    title: "Joinery",
-    fields: [
-      { name: "grooveDepth", label: "Groove Depth" },
-      { name: "tongueLength", label: "Tongue Length" },
-      { name: "verticalPanelClearance", label: "Vertical Panel Clearance" },
-      { name: "horizontalPanelClearance", label: "Horizontal Panel Clearance" },
-    ],
-  },
-];
 
 const App = () => {
   const [doorType, setDoorType] = useState(() => {
@@ -181,11 +156,36 @@ const App = () => {
 
   const data = useMemo(() => calculateData(doors, settings, doorType, profile), [doors, settings, doorType, profile]);
 
-  const updateSetting = (field, value) => {
-    setSettings((currentSettings) => ({
-      ...currentSettings,
-      [field]: value,
-    }));
+  const doorWarnings = useMemo(() => {
+    return doors.map((door) => {
+      const { warnings } = validateDoor(door, settings, doorType);
+      return { id: door.id, warnings };
+    });
+  }, [doors, settings, doorType]);
+
+  const updateSetting = (field, value, previewDoor) => {
+    const proposedSettings = { ...settings, [field]: value };
+
+    // Validate against all active doors
+    for (let i = 0; i < doors.length; i++) {
+      const { errors } = validateDoor(doors[i], proposedSettings, doorType);
+      if (errors.length > 0) {
+        toast.error(errors[0].message);
+        return false;
+      }
+    }
+
+    // Validate against preview door if provided
+    if (previewDoor) {
+      const { errors } = validateDoor(previewDoor, proposedSettings, doorType);
+      if (errors.length > 0) {
+        toast.error(errors[0].message);
+        return false;
+      }
+    }
+
+    setSettings(proposedSettings);
+    return true;
   };
 
   const handleSave = () => {
@@ -236,6 +236,21 @@ const App = () => {
 
         const normalizedSettings = normalizeSettings(loadedState.settings);
         const normalizedDoors = loadedState.doors.map((door) => normalizeDoor(door));
+
+        // Validate loaded state
+        let hasLoadError = false;
+        for (const door of normalizedDoors) {
+          const { errors } = validateDoor(door, normalizedSettings, loadedState.doorType || doorType);
+          if (errors.length > 0) {
+            toast.error(`Load failed: ${errors[0].message}`);
+            hasLoadError = true;
+            break;
+          }
+        }
+
+        if (hasLoadError) {
+          return;
+        }
 
         setJobName(loadedState.jobName);
         setDoorType(loadedState.doorType);
@@ -292,6 +307,18 @@ const App = () => {
   };
 
   const updateDoor = (id, field, value) => {
+    if (field === "width" || field === "height") {
+      const door = doors.find((d) => d.id === id);
+      if (door) {
+        const proposedDoor = { ...door, [field]: value };
+        const { errors } = validateDoor(proposedDoor, settings, doorType);
+        if (errors.length > 0) {
+          toast.error(errors[0].message);
+          return false;
+        }
+      }
+    }
+
     setDoors((currentDoors) =>
       currentDoors.map((door) => {
         if (door.id !== id) {
@@ -301,6 +328,7 @@ const App = () => {
         return { ...door, [field]: value };
       }),
     );
+    return true;
   };
 
   return (
@@ -552,15 +580,20 @@ const App = () => {
           </div>
 
           <div className="space-y-4">
-            {doors.map((door, index) => (
-              <DoorCard
-                key={door.id}
-                door={door}
-                index={index}
-                onUpdate={updateDoor}
-                onRemove={removeDoor}
-              />
-            ))}
+            {doors.map((door, index) => {
+              const warningsObj = doorWarnings.find((w) => w.id === door.id);
+              const warnings = warningsObj ? warningsObj.warnings : [];
+              return (
+                <DoorCard
+                  key={door.id}
+                  door={door}
+                  index={index}
+                  onUpdate={updateDoor}
+                  onRemove={removeDoor}
+                  warnings={warnings}
+                />
+              );
+            })}
           </div>
         </div>
       </div>

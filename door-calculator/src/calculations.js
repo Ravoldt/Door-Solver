@@ -35,9 +35,10 @@ export const calculateData = (doors, settings, doorType, profile) => {
     stileWidth: configStileWidth,
     stileThickness: configStileThickness,
     topRailWidth,
-    middleRailWidth,
+    lockRailWidth,
+    intermediateRailWidth,
     bottomRailWidth,
-    heightToMiddleRail,
+    heightToLockRail,
     grooveDepth,
     tongueLength,
     verticalPanelClearance,
@@ -112,7 +113,7 @@ export const calculateData = (doors, settings, doorType, profile) => {
       const nominalStileWidth = roundDimension(configStileWidth);
       const cutStileWidth = roundDimension(getTrimmedWidth(nominalStileWidth, 1, 1));
       const cutTopRailWidth = roundDimension(getTrimmedWidth(topRailWidth, 1, 1));
-      const cutMiddleRailWidth = roundDimension(getTrimmedWidth(middleRailWidth, 0, 2));
+      const cutLockRailWidth = roundDimension(getTrimmedWidth(lockRailWidth, 0, 2));
       const cutBottomRailWidth = roundDimension(getTrimmedWidth(bottomRailWidth, 1, 1));
       const stileThickness = roundDimension(configStileThickness);
 
@@ -134,8 +135,8 @@ export const calculateData = (doors, settings, doorType, profile) => {
 
       addGroupedItem(
         middleRailsMap,
-        buildKey(stileThickness, cutMiddleRailWidth, railLength),
-        { thickness: stileThickness, width: cutMiddleRailWidth, length: railLength },
+        buildKey(stileThickness, cutLockRailWidth, railLength),
+        { thickness: stileThickness, width: cutLockRailWidth, length: railLength },
         qty,
       );
 
@@ -151,10 +152,10 @@ export const calculateData = (doors, settings, doorType, profile) => {
       );
       const panelHeightAllowance = (grooveDepth * 2) - verticalPanelClearance;
       const lowerPanelHeight = roundDimension(
-        heightToMiddleRail - bottomRailWidth - (middleRailWidth / 2) + panelHeightAllowance,
+        heightToLockRail - bottomRailWidth - (lockRailWidth / 2) + panelHeightAllowance,
       );
       const upperPanelHeight = roundDimension(
-        height - heightToMiddleRail - topRailWidth - (middleRailWidth / 2) + panelHeightAllowance,
+        height - heightToLockRail - topRailWidth - (lockRailWidth / 2) + panelHeightAllowance,
       );
 
       addPanelItem("upper", panelWidth, upperPanelHeight, "(Upper)", qty);
@@ -167,7 +168,7 @@ export const calculateData = (doors, settings, doorType, profile) => {
       const nominalStileWidth = roundDimension(configStileWidth);
       const cutStileWidth = roundDimension(getTrimmedWidth(nominalStileWidth, 1, 1));
       const cutTopRailWidth = roundDimension(getTrimmedWidth(topRailWidth, 1, 1));
-      const cutMiddleRailWidth = roundDimension(getTrimmedWidth(middleRailWidth, 0, 2));
+      const cutIntermediateRailWidth = roundDimension(getTrimmedWidth(intermediateRailWidth, 0, 2));
       const cutBottomRailWidth = roundDimension(getTrimmedWidth(bottomRailWidth, 1, 1));
       const stileThickness = roundDimension(configStileThickness);
 
@@ -189,8 +190,8 @@ export const calculateData = (doors, settings, doorType, profile) => {
 
       addGroupedItem(
         middleRailsMap,
-        buildKey(stileThickness, cutMiddleRailWidth, railLength),
-        { thickness: stileThickness, width: cutMiddleRailWidth, length: railLength },
+        buildKey(stileThickness, cutIntermediateRailWidth, railLength),
+        { thickness: stileThickness, width: cutIntermediateRailWidth, length: railLength },
         qty * 2,
       );
 
@@ -205,7 +206,7 @@ export const calculateData = (doors, settings, doorType, profile) => {
         width - (nominalStileWidth * 2) + (grooveDepth * 2) - horizontalPanelClearance,
       );
       const panelHeightAllowance = (grooveDepth * 2) - verticalPanelClearance;
-      const availableSpace = height - topRailWidth - bottomRailWidth - (2 * middleRailWidth);
+      const availableSpace = height - topRailWidth - bottomRailWidth - (2 * intermediateRailWidth);
       const panelHeight = roundDimension((availableSpace / 3) + panelHeightAllowance);
 
       addPanelItem("all", panelWidth, panelHeight, "(All)", qty * 3);

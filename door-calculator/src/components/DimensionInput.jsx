@@ -16,8 +16,12 @@ const DimensionInput = ({ value, onChange, className = "", ...props }) => {
       return;
     }
 
-    onChange(parsedValue);
-    setDraftValue(formatDecimalInput(parsedValue));
+    const success = onChange(parsedValue);
+    if (success === false) {
+      setDraftValue(formatDecimalInput(value));
+    } else {
+      setDraftValue(formatDecimalInput(parsedValue));
+    }
   };
 
   return (

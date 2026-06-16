@@ -2,9 +2,10 @@ export const DEFAULT_SETTINGS = {
   stileWidth: 5,
   stileThickness: 1.75,
   topRailWidth: 5,
-  middleRailWidth: 6.25,
+  lockRailWidth: 6.25,
+  intermediateRailWidth: 5,
   bottomRailWidth: 9,
-  heightToMiddleRail: 36,
+  heightToLockRail: 36,
   grooveDepth: 1.5,
   tongueLength: 1.5,
   verticalPanelClearance: 0.875,
@@ -26,9 +27,9 @@ export const STYLE_REQUIRED_SETTINGS = {
     "stileWidth",
     "stileThickness",
     "topRailWidth",
-    "middleRailWidth",
+    "lockRailWidth",
     "bottomRailWidth",
-    "heightToMiddleRail",
+    "heightToLockRail",
     "grooveDepth",
     "tongueLength",
     "verticalPanelClearance",
@@ -38,7 +39,7 @@ export const STYLE_REQUIRED_SETTINGS = {
     "stileWidth",
     "stileThickness",
     "topRailWidth",
-    "middleRailWidth",
+    "intermediateRailWidth",
     "bottomRailWidth",
     "grooveDepth",
     "tongueLength",
@@ -76,9 +77,10 @@ export const getDoorGeometry = (width, height, settings, doorType) => {
   const {
     stileWidth,
     topRailWidth,
-    middleRailWidth,
+    lockRailWidth,
+    intermediateRailWidth,
     bottomRailWidth,
-    heightToMiddleRail,
+    heightToLockRail,
   } = activeSettings;
 
   const geometry = {
@@ -141,17 +143,17 @@ export const getDoorGeometry = (width, height, settings, doorType) => {
       label: "Panel",
     });
   } else if (doorType === "2 Panel") {
-    const midYCenter = height - heightToMiddleRail;
-    const midY = midYCenter - middleRailWidth / 2;
+    const midYCenter = height - heightToLockRail;
+    const midY = midYCenter - lockRailWidth / 2;
 
-    // Middle Rail
+    // Lock Rail
     geometry.rails.push({
       id: "middle-rail-1",
       x: stileWidth,
       y: midY,
       width: innerWidth,
-      height: middleRailWidth,
-      label: "Middle Rail",
+      height: lockRailWidth,
+      label: "Lock Rail",
     });
 
     // Upper Panel
@@ -168,36 +170,36 @@ export const getDoorGeometry = (width, height, settings, doorType) => {
     geometry.panels.push({
       id: "panel-lower",
       x: stileWidth,
-      y: midY + middleRailWidth,
+      y: midY + lockRailWidth,
       width: innerWidth,
-      height: Math.max(0, (height - bottomRailWidth) - (midY + middleRailWidth)),
+      height: Math.max(0, (height - bottomRailWidth) - (midY + lockRailWidth)),
       label: "Lower Panel",
     });
   } else if (doorType === "3 Panel") {
-    const availableSpace = height - topRailWidth - bottomRailWidth - 2 * middleRailWidth;
+    const availableSpace = height - topRailWidth - bottomRailWidth - 2 * intermediateRailWidth;
     const panelHeight = Math.max(0, availableSpace / 3);
 
     const midY1 = topRailWidth + panelHeight;
-    const midY2 = midY1 + middleRailWidth + panelHeight;
+    const midY2 = midY1 + intermediateRailWidth + panelHeight;
 
-    // First Middle Rail
+    // First Intermediate Rail
     geometry.rails.push({
       id: "middle-rail-1",
       x: stileWidth,
       y: midY1,
       width: innerWidth,
-      height: middleRailWidth,
-      label: "Middle Rail 1",
+      height: intermediateRailWidth,
+      label: "Intermediate Rail 1",
     });
 
-    // Second Middle Rail
+    // Second Intermediate Rail
     geometry.rails.push({
       id: "middle-rail-2",
       x: stileWidth,
       y: midY2,
       width: innerWidth,
-      height: middleRailWidth,
-      label: "Middle Rail 2",
+      height: intermediateRailWidth,
+      label: "Intermediate Rail 2",
     });
 
     // Upper Panel
@@ -214,7 +216,7 @@ export const getDoorGeometry = (width, height, settings, doorType) => {
     geometry.panels.push({
       id: "panel-middle",
       x: stileWidth,
-      y: midY1 + middleRailWidth,
+      y: midY1 + intermediateRailWidth,
       width: innerWidth,
       height: panelHeight,
       label: "Middle Panel",
@@ -224,7 +226,7 @@ export const getDoorGeometry = (width, height, settings, doorType) => {
     geometry.panels.push({
       id: "panel-lower",
       x: stileWidth,
-      y: midY2 + middleRailWidth,
+      y: midY2 + intermediateRailWidth,
       width: innerWidth,
       height: panelHeight,
       label: "Lower Panel",

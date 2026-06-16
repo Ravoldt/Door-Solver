@@ -357,7 +357,9 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
                           <td className={`${cellClassName} p-2 text-center font-bold`}>{row.qty}</td>
                           <td className={`${cellClassName} p-2 text-center`}>
                             {formatLumberSize(row)}{" "}
-                            <span className="text-[10px] text-stone-500 block sm:inline">(Mid)</span>
+                            <span className="text-[10px] text-stone-500 block sm:inline">
+                              {doorType === "2 Panel" ? "(Lock)" : "(Inter.)"}
+                            </span>
                           </td>
                         </tr>
                       ))}
