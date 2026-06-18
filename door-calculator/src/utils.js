@@ -37,7 +37,7 @@ export const parseFraction = (value) => {
 
   const normalizedValue = trimmedValue.replace(/\s*-\s*/g, " ");
 
-  if (/^-?\d+(\.\d+)?$/.test(normalizedValue)) {
+  if (/^-?\d*\.?\d+$/.test(normalizedValue)) {
     return roundDimension(Number(normalizedValue));
   }
 
@@ -74,12 +74,39 @@ export const parseFraction = (value) => {
   return Number.NaN;
 };
 
-export const formatDecimalInput = (value) => {
+export const formatInputDimension = (value) => {
   if (!Number.isFinite(value)) {
     return "";
   }
 
-  return roundDimension(value).toString();
+  const roundedValue = roundDimension(value, 100000);
+  const sign = roundedValue < 0 ? "-" : "";
+  const absoluteValue = Math.abs(roundedValue);
+  const whole = Math.floor(absoluteValue);
+  const fraction = absoluteValue - whole;
+
+  const thirtySeconds = fraction * 32;
+  const isExact32nd = Math.abs(thirtySeconds - Math.round(thirtySeconds)) < 0.0001;
+
+  if (!isExact32nd) {
+    return roundedValue.toString();
+  }
+
+  const thirtySecondsInt = Math.round(thirtySeconds);
+  if (thirtySecondsInt === 0) {
+    return `${sign}${whole}`;
+  }
+  if (thirtySecondsInt === 32) {
+    return `${sign}${whole + 1}`;
+  }
+
+  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+  const divisor = gcd(thirtySecondsInt, 32);
+  const num = thirtySecondsInt / divisor;
+  const den = 32 / divisor;
+  const fracStr = `${num}/${den}`;
+
+  return whole > 0 ? `${sign}${whole} ${fracStr}` : `${sign}${fracStr}`;
 };
 
 export const toFraction = (value) => {

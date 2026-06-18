@@ -1,3 +1,5 @@
+export const APP_VERSION = "1.0.1";
+
 export const DEFAULT_SETTINGS = {
   stileWidth: 5,
   stileThickness: 1.75,

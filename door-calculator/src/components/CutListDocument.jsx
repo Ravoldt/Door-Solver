@@ -1,9 +1,10 @@
 import { Fragment } from "react";
 import { toFraction } from "../utils";
+import { APP_VERSION } from "../doorconfig";
 
 const printBorderClassName = "border-stone-900";
-const tableClassName = `w-full border-collapse border-2 ${printBorderClassName}`;
-const cellClassName = `border ${printBorderClassName}`;
+const tableClassName = "w-full clean-table";
+const cellClassName = "";
 const headerRowClassName = "bg-stone-200";
 const dividerRowClassName = "bg-stone-200 h-2";
 
@@ -76,18 +77,18 @@ const computeLayout = (data, doorType) => {
   const getRailsHeight = (emptyCount) => {
     const hasRails = rCount > 0 || mCount > 0 || bCount > 0 || emptyCount > 0;
     if (!hasRails) return 0;
-    
+
     let height = HEADER_H;
     height += rCount * ROW_H;
-    
+
     if (doorType !== "1 Panel") {
       height += DIVIDER_H;
       height += mCount * ROW_H;
     }
-    
+
     height += DIVIDER_H;
     height += bCount * ROW_H;
-    
+
     height += emptyCount * ROW_H;
     height += TABLE_BORDER_H;
     return height;
@@ -250,7 +251,7 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
 
   const renderFooter = () => (
     <div className={`mt-auto text-[10px] text-stone-500 border-t ${printBorderClassName} pt-2 flex justify-between`}>
-      <span>Generated via doorsolver.app</span>
+      <span>Generated via doorsolver.app v{APP_VERSION}</span>
       <span>Date: {new Date().toLocaleDateString()}</span>
     </div>
   );
@@ -310,8 +311,7 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
                         <tr key={`${group.section}-${index}`}>
                           <td className={`${cellClassName} p-2 text-center font-bold`}>{row.qty}</td>
                           <td className={`${cellClassName} p-2 text-center`}>
-                            {formatPanelSize(row)}{" "}
-                            {row.label && <span className="text-[10px] text-stone-600">{row.label}</span>}
+                            {formatPanelSize(row)}
                           </td>
                         </tr>
                       ))}
@@ -341,8 +341,7 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
                     <tr key={`top-stile-${index}`}>
                       <td className={`${cellClassName} p-2 text-center font-bold`}>{row.qty}</td>
                       <td className={`${cellClassName} p-2 text-center`}>
-                        {formatLumberSize(row)}{" "}
-                        <span className="text-[10px] text-stone-500 block sm:inline">(Top)</span>
+                        {formatLumberSize(row)}
                       </td>
                     </tr>
                   ))}
@@ -356,10 +355,7 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
                         <tr key={`mid-stile-${index}`}>
                           <td className={`${cellClassName} p-2 text-center font-bold`}>{row.qty}</td>
                           <td className={`${cellClassName} p-2 text-center`}>
-                            {formatLumberSize(row)}{" "}
-                            <span className="text-[10px] text-stone-500 block sm:inline">
-                              {doorType === "2 Panel" ? "(Lock)" : "(Inter.)"}
-                            </span>
+                            {formatLumberSize(row)}
                           </td>
                         </tr>
                       ))}
@@ -373,8 +369,7 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
                     <tr key={`bot-stile-${index}`}>
                       <td className={`${cellClassName} p-2 text-center font-bold`}>{row.qty}</td>
                       <td className={`${cellClassName} p-2 text-center`}>
-                        {formatLumberSize(row)}{" "}
-                        <span className="text-[10px] text-stone-500 block sm:inline">(Bot)</span>
+                        {formatLumberSize(row)}
                       </td>
                     </tr>
                   ))}
@@ -414,6 +409,34 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
       )}
 
       <style>{`
+        .clean-table {
+          table-layout: fixed !important;
+          border-collapse: separate !important;
+          border-spacing: 1px !important;
+          padding: 2px !important;
+          background-color: #1c1917 !important;
+          border: none !important;
+        }
+        .clean-table th, .clean-table td {
+          border: none !important;
+          background-color: #ffffff !important;
+        }
+        /* Gray Headers & Dividers */
+        .clean-table tr.bg-stone-200 th,
+        .clean-table tr.bg-stone-200 td {
+          background-color: #e7e5e4 !important; /* stone-200 */
+        }
+        /* Light Gray Dividers */
+        .clean-table tr.bg-stone-100 td {
+          background-color: #f5f5f4 !important; /* stone-100 */
+        }
+        /* Dark Headers */
+        .clean-table tr.bg-stone-900 th,
+        .clean-table tr.bg-stone-900 td {
+          background-color: #1c1917 !important; /* stone-900 */
+          color: #ffffff !important;
+        }
+
         @media print {
           body {
             background: white;

@@ -1,26 +1,26 @@
 import { useEffect, useState } from "react";
-import { formatDecimalInput, parseFraction } from "../utils";
+import { formatInputDimension, parseFraction } from "../utils";
 
 const DimensionInput = ({ value, onChange, className = "", ...props }) => {
-  const [draftValue, setDraftValue] = useState(formatDecimalInput(value));
+  const [draftValue, setDraftValue] = useState(formatInputDimension(value));
 
   useEffect(() => {
-    setDraftValue(formatDecimalInput(value));
+    setDraftValue(formatInputDimension(value));
   }, [value]);
 
   const commitValue = () => {
     const parsedValue = parseFraction(draftValue);
 
     if (Number.isNaN(parsedValue)) {
-      setDraftValue(formatDecimalInput(value));
+      setDraftValue(formatInputDimension(value));
       return;
     }
 
     const success = onChange(parsedValue);
     if (success === false) {
-      setDraftValue(formatDecimalInput(value));
+      setDraftValue(formatInputDimension(value));
     } else {
-      setDraftValue(formatDecimalInput(parsedValue));
+      setDraftValue(formatInputDimension(parsedValue));
     }
   };
 

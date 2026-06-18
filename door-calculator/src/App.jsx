@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, FileText, FolderOpen, Plus, Printer, Save, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ChevronDown, FileText, FolderOpen, Plus, Printer, Save, Settings, Trash2 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 import { PDFDocument } from "pdf-lib";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 import { calculateData } from "./calculations";
 import CutListDocument from "./components/CutListDocument";
 import DimensionInput from "./components/DimensionInput";
 import DoorCard from "./components/DoorCard";
 import { parseFraction } from "./utils";
-import { DEFAULT_SETTINGS, STYLE_REQUIRED_SETTINGS, DOOR_STYLES } from "./doorconfig";
+import { DEFAULT_SETTINGS, STYLE_REQUIRED_SETTINGS, DOOR_STYLES, APP_VERSION } from "./doorconfig";
 import SettingsWorkspace from "./components/SettingsWorkspace";
 import MiniDoorStyleSvg from "./components/MiniDoorStyleSvg";
 import { validateDoor } from "./validation";
@@ -101,14 +101,14 @@ const App = () => {
     const saved = localStorage.getItem("door_calculator_species") ?? "Poplar";
     return PREDEFINED_SPECIES.includes(saved) ? "" : saved;
   });
-  const [isSpeciesDropdownOpen, setIsSpeciesDropdownOpen] = useState(false);
+
 
   const species = selectedSpecies === "Custom" ? customText : selectedSpecies;
   const [profile, setProfile] = useState(() => {
     return localStorage.getItem("door_calculator_profile") ?? "Shaker";
   });
   const [finish, setFinish] = useState(() => {
-    return localStorage.getItem("door_calculator_finish") ?? "Paint";
+    return localStorage.getItem("door_calculator_finish") ?? "Stain";
   });
   const [settings, setSettings] = useState(() => {
     try {
@@ -156,21 +156,26 @@ const App = () => {
     localStorage.setItem("door_calculator_doors", JSON.stringify(doors));
   }, [doors]);
 
-  const data = useMemo(() => calculateData(doors, settings, doorType, profile), [doors, settings, doorType, profile]);
+  const data = useMemo(() => {
+    const effectiveSettings = profile === "Ovolo" ? { ...settings, grooveDepth: 1.5, tongueLength: 1.5 } : settings;
+    return calculateData(doors, effectiveSettings, doorType, profile);
+  }, [doors, settings, doorType, profile]);
 
   const doorWarnings = useMemo(() => {
+    const effectiveSettings = profile === "Ovolo" ? { ...settings, grooveDepth: 1.5, tongueLength: 1.5 } : settings;
     return doors.map((door) => {
-      const { warnings } = validateDoor(door, settings, doorType);
+      const { warnings } = validateDoor(door, effectiveSettings, doorType);
       return { id: door.id, warnings };
     });
-  }, [doors, settings, doorType]);
+  }, [doors, settings, doorType, profile]);
 
   const updateSetting = (field, value, previewDoor) => {
     const proposedSettings = { ...settings, [field]: value };
+    const effectiveSettings = profile === "Ovolo" ? { ...proposedSettings, grooveDepth: 1.5, tongueLength: 1.5 } : proposedSettings;
 
     // Validate against all active doors
     for (let i = 0; i < doors.length; i++) {
-      const { errors } = validateDoor(doors[i], proposedSettings, doorType);
+      const { errors } = validateDoor(doors[i], effectiveSettings, doorType);
       if (errors.length > 0) {
         toast.error(errors[0].message);
         return false;
@@ -179,7 +184,7 @@ const App = () => {
 
     // Validate against preview door if provided
     if (previewDoor) {
-      const { errors } = validateDoor(previewDoor, proposedSettings, doorType);
+      const { errors } = validateDoor(previewDoor, effectiveSettings, doorType);
       if (errors.length > 0) {
         toast.error(errors[0].message);
         return false;
@@ -199,7 +204,7 @@ const App = () => {
       species,
       profile,
       finish,
-      appVersion: "1.0",
+      appVersion: APP_VERSION,
     };
 
     const toastId = toast.loading("Generating PDF...");
@@ -211,20 +216,20 @@ const App = () => {
       const capturePage = async (pageId) => {
         const element = document.getElementById(pageId);
         if (!element) return;
-        
+
         const hasShadow = element.classList.contains("shadow-2xl");
         if (hasShadow) element.classList.remove("shadow-2xl");
-        
+
         const canvas = await html2canvas(element, { scale: 2 });
-        
+
         if (hasShadow) element.classList.add("shadow-2xl");
-        
+
         const imgData = canvas.toDataURL("image/png");
         const pngImage = await pdfDoc.embedPng(imgData);
-        
+
         const page = pdfDoc.addPage([612, 792]);
         const { width, height } = pngImage.scaleToFit(612, 792);
-        
+
         page.drawImage(pngImage, {
           x: (612 - width) / 2,
           y: (792 - height) / 2,
@@ -246,7 +251,7 @@ const App = () => {
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
-      
+
       toast.success("PDF saved successfully!", { id: toastId });
     } catch (error) {
       console.error("Failed to generate PDF:", error);
@@ -265,7 +270,7 @@ const App = () => {
     reader.onload = async (loadEvent) => {
       try {
         let loadedStateStr = null;
-        
+
         if (file.name.toLowerCase().endsWith(".pdf")) {
           const pdfDoc = await PDFDocument.load(loadEvent.target.result);
           loadedStateStr = pdfDoc.getSubject();
@@ -351,25 +356,57 @@ const App = () => {
   };
 
   const handleClearAll = () => {
-    if (window.confirm("Are you sure you want to clear all door sizes and reset all settings?")) {
-      setDoors([createDoor()]);
-      setSettings(DEFAULT_SETTINGS);
-      setJobName("Job Name");
-      setDoorType("2 Panel");
-      setSelectedSpecies("Poplar");
-      setCustomText("");
-      setProfile("Shaker");
-      setFinish("Stain");
-      toast.success("Calculator reset successfully");
-    }
+    toast((t) => (
+      <div className="flex flex-col gap-2 text-left">
+        <div className="flex flex-col gap-0.5">
+          <p className="font-bold text-stone-900 text-sm">Are you sure?</p>
+          <p className="text-xs text-stone-500 font-medium normal-case leading-relaxed">
+            All construction settings and currently added doors will be reset to default values.
+          </p>
+        </div>
+        <div className="flex justify-end gap-2 mt-1">
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="px-3 py-1 bg-stone-100 border border-stone-300 text-stone-700 rounded-sm text-xs font-bold hover:bg-stone-200 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              toast.dismiss(t.id);
+              setDoors([createDoor()]);
+              setSettings(DEFAULT_SETTINGS);
+              setJobName("Job Name");
+              setDoorType("2 Panel");
+              setSelectedSpecies("Poplar");
+              setCustomText("");
+              setProfile("Shaker");
+              setFinish("Stain");
+              toast.success("Calculator reset successfully");
+            }}
+            className="px-3 py-1 bg-red-600 text-white rounded-sm text-xs font-bold hover:bg-red-700 transition-colors cursor-pointer"
+          >
+            Reset All
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: 10000,
+      position: "top-center",
+      style: {
+        maxWidth: "320px",
+        padding: "16px",
+      }
+    });
   };
 
   const updateDoor = (id, field, value) => {
+    const effectiveSettings = profile === "Ovolo" ? { ...settings, grooveDepth: 1.5, tongueLength: 1.5 } : settings;
     if (field === "width" || field === "height") {
       const door = doors.find((d) => d.id === id);
       if (door) {
         const proposedDoor = { ...door, [field]: value };
-        const { errors } = validateDoor(proposedDoor, settings, doorType);
+        const { errors } = validateDoor(proposedDoor, effectiveSettings, doorType);
         if (errors.length > 0) {
           toast.error(errors[0].message);
           return false;
@@ -442,9 +479,58 @@ const App = () => {
             />
           </div>
 
+          {/* Wood Species - Horizontally scrolling list */}
+          <div className="mb-6">
+            <label className="block text-xs font-semibold text-stone-900 uppercase mb-3">Wood Species</label>
+            <div className="flex gap-2 overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-50">
+              {[...PREDEFINED_SPECIES, "Custom"].map((option) => {
+                const isSelected = selectedSpecies === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSpecies(option);
+                      if (option !== "Custom") {
+                        setCustomText("");
+                      }
+                    }}
+                    className={`flex-none px-4 py-2 text-sm font-semibold rounded-sm border-2 transition-all duration-150 cursor-pointer ${isSelected
+                        ? "border-[#00A69C] bg-teal-50/20 text-stone-900 shadow-sm"
+                        : "border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-400 hover:bg-stone-100/50"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${isSelected ? "text-[#00A69C]" : "text-stone-850"}`}>
+                        {option}
+                      </span>
+                      {isSelected && (
+                        <span className="w-2 h-2 rounded-full bg-[#00A69C]"></span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Species Input (shown when "Custom" is selected) */}
+            {selectedSpecies === "Custom" && (
+              <div className="mt-4 animate-fade-in">
+                <label className="block text-[10px] font-bold text-stone-500 uppercase mb-2">Custom Wood Species Name</label>
+                <input
+                  type="text"
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  className="w-full max-w-md border-b-2 border-stone-900 focus:border-[#00A69C] outline-none py-1.5 text-lg bg-transparent font-semibold"
+                  placeholder="e.g. Mahogany, Ash, Birch..."
+                />
+              </div>
+            )}
+          </div>
+
           {/* Door Style - Horizontally scrolling list */}
           <div className="mb-6">
-            <label className="block text-xs font-semibold text-stone-900 uppercase mb-3">Door Style / Material</label>
+            <label className="block text-xs font-semibold text-stone-900 uppercase mb-3">Door Style</label>
             <div className="flex gap-4 overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-50">
               {DOOR_STYLES.map((style) => {
                 const isSelected = doorType === style.id;
@@ -459,16 +545,11 @@ const App = () => {
                       }`}
                   >
                     {/* Dynamic Scaled SVG Thumbnail */}
-                    <div className={`aspect-square w-full rounded border flex items-center justify-center p-2 mb-3 transition-all duration-200 ${isSelected
-                      ? "border-teal-400 bg-teal-50/25 shadow-inner"
-                      : "border-stone-200 bg-stone-100/50 hover:bg-stone-100"
-                      }`}>
-                      <div className="w-16 h-16 flex items-center justify-center">
-                        <MiniDoorStyleSvg styleId={style.id} />
-                      </div>
+                    <div className="w-full mb-3 flex items-center justify-center pointer-events-none">
+                      <MiniDoorStyleSvg styleId={style.id} />
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-center gap-2">
                       <span className={`text-sm font-bold ${isSelected ? "text-[#00A69C]" : "text-stone-850"}`}>
                         {style.label}
                       </span>
@@ -482,70 +563,8 @@ const App = () => {
             </div>
           </div>
 
-          {/* Species, Profile and Finish row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            {/* Species Selection */}
-            <div className="relative">
-              <label className="block text-xs font-semibold text-stone-900 uppercase mb-2">
-                Wood Species
-              </label>
-
-              <div className="relative flex items-center border-b-2 border-stone-900 focus-within:border-[#00A69C] bg-transparent">
-                {/* Hybrid Input */}
-                <input
-                  type="text"
-                  value={selectedSpecies === "Custom" ? customText : selectedSpecies}
-                  onChange={(e) => setCustomText(e.target.value)}
-                  readOnly={selectedSpecies !== "Custom"}
-                  // If it's a preset, clicking the input opens the menu. If custom, let them click to type.
-                  onClick={() => {
-                    if (selectedSpecies !== "Custom") setIsSpeciesDropdownOpen(!isSpeciesDropdownOpen);
-                  }}
-                  className={`w-full py-1.5 pl-0 pr-8 text-lg bg-transparent text-stone-900 focus:outline-none 
-                    ${selectedSpecies !== "Custom" ? "cursor-pointer" : "cursor-text"}`}
-                  placeholder={selectedSpecies === "Custom" ? "Enter custom species..." : ""}
-                />
-
-                {/* Toggle Arrow */}
-                <button
-                  type="button"
-                  onClick={() => setIsSpeciesDropdownOpen(!isSpeciesDropdownOpen)}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 text-stone-900 hover:text-[#00A69C] focus:outline-none"
-                >
-                  <ChevronDown size={18} />
-                </button>
-              </div>
-
-              {/* Wide Dropdown Menu */}
-              {isSpeciesDropdownOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setIsSpeciesDropdownOpen(false)}
-                  />
-                  <ul className="absolute left-0 top-full z-20 mt-1 max-h-60 w-full overflow-auto border border-stone-900 bg-white shadow-lg rounded-sm">
-                    {[...PREDEFINED_SPECIES, "Custom"].map((option) => (
-                      <li
-                        key={option}
-                        onClick={() => {
-                          setSelectedSpecies(option);
-                          setIsSpeciesDropdownOpen(false);
-                          if (option !== "Custom") {
-                            setCustomText(""); // Clear custom text if they switch back to a preset
-                          }
-                        }}
-                        className={`cursor-pointer px-4 py-2 hover:bg-teal-50 hover:text-teal-700
-                          ${selectedSpecies === option ? "bg-stone-100 font-bold" : "text-stone-850"}
-                        `}
-                      >
-                        {option}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
-
+          {/* Profile and Finish row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* Profile Selection Toggle */}
             <div>
               <label className="block text-xs font-semibold text-stone-900 uppercase mb-2">Profile</label>
@@ -613,10 +632,10 @@ const App = () => {
               <button
                 type="button"
                 onClick={() => setIsSettingsOpen(true)}
-                className="p-2.5 rounded-sm border border-stone-300 bg-stone-100 text-stone-900 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-500 transition-colors cursor-pointer"
+                className={`${secondaryButtonClassName} cursor-pointer`}
                 title="Configure defaults and preview style"
               >
-                <SlidersHorizontal size={18} className="stroke-[2.5]" />
+                <Settings size={18} className="stroke-[2.5]" /> Settings
               </button>
             </div>
 
@@ -648,7 +667,7 @@ const App = () => {
                 <DoorCard
                   key={door.id}
                   door={door}
-                  index={index}
+                  index={doors.length - index - 1}
                   onUpdate={updateDoor}
                   onRemove={removeDoor}
                   warnings={warnings}
@@ -679,6 +698,7 @@ const App = () => {
         doors={doors}
         species={species}
         updateDoor={updateDoor}
+        profile={profile}
       />
     </div>
   );

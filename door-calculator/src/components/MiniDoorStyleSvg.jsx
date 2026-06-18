@@ -3,14 +3,14 @@ import { getDoorGeometry, DEFAULT_SETTINGS } from "../doorconfig";
 
 const MiniDoorStyleSvg = ({ styleId }) => {
   const geom = getDoorGeometry(36, 96, DEFAULT_SETTINGS, styleId);
-  const p = 5; // padding in inches
+  const p = 0.5; // padding in inches
   const vbW = 36 + 2 * p;
   const vbH = 96 + 2 * p;
 
   return (
     <svg
       viewBox={`${-p} ${-p} ${vbW} ${vbH}`}
-      className="w-full h-full p-0.5 select-none pointer-events-none transition-all duration-350"
+      className="w-full h-full select-none pointer-events-none transition-all duration-350"
       style={{ aspectRatio: `${vbW}/${vbH}` }}
     >
       <defs>
@@ -46,7 +46,7 @@ const MiniDoorStyleSvg = ({ styleId }) => {
             height={stile.height}
             fill="#c8a96e"
             stroke="#292524"
-            strokeWidth={0.8}
+            strokeWidth={0.3}
           />
         ))}
         {/* Draw rails */}
@@ -59,7 +59,7 @@ const MiniDoorStyleSvg = ({ styleId }) => {
             height={rail.height}
             fill="#c8a96e"
             stroke="#292524"
-            strokeWidth={0.8}
+            strokeWidth={0.3}
           />
         ))}
       </g>

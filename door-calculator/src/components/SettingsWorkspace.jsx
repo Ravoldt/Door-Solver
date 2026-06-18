@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { X, RotateCcw, HelpCircle, ChevronDown, Check } from "lucide-react";
 import { DEFAULT_SETTINGS, STYLE_REQUIRED_SETTINGS, DOOR_STYLES, getDoorGeometry } from "../doorconfig";
-import { toFraction, parseFraction, formatDecimalInput } from "../utils";
+import { toFraction, parseFraction, formatInputDimension } from "../utils";
 import DimensionInput from "./DimensionInput";
 import { toast } from "react-hot-toast";
 import { validateDoor } from "../validation";
@@ -99,7 +99,7 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
 
   // Math for Ticks (45-degree architectural slashes)
   // Always drawn bottom-left to top-right on the sheet
-  const tickSize = 0.8;
+  const tickSize = 0.6;
   const tickX1_1 = dimX1 - tickSize;
   const tickY1_1 = dimY1 + tickSize;
   const tickX1_2 = dimX1 + tickSize;
@@ -111,9 +111,16 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
   const tickY2_2 = dimY2 - tickSize;
 
   // Hover hit-box dimensions for text
-  const textLen = value.length;
-  const hoverWidth = Math.max(10, textLen * 2.2 + 2);
-  const hoverHeight = 8;
+  const lines = labelText.split('\n');
+  const maxLineLen = Math.max(...lines.map(l => l.length));
+  const valLen = value.length;
+  const hoverWidth = Math.max(8, Math.max(maxLineLen * 1.1, valLen * 1.5) + 3);
+
+  // Small visual box wrapping only the value, centered on the line
+  const boxWidth = Math.max(8, valLen * 1.6 + 2.5);
+  const boxHeight = 4.5;
+  const boxX = midX - boxWidth / 2;
+  const boxY = midY - boxHeight / 2;
 
   return (
     <g className="transition-all duration-200">
@@ -124,7 +131,7 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
         x2={extX1_end}
         y2={extY1_end}
         stroke={isHighlighted ? "#00A69C" : "#a8a29e"}
-        strokeWidth={isHighlighted ? 0.35 : 0.2}
+        strokeWidth={isHighlighted ? 0.25 : 0.12}
         strokeDasharray="0.8,0.8"
       />
       <line
@@ -133,7 +140,7 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
         x2={extX2_end}
         y2={extY2_end}
         stroke={isHighlighted ? "#00A69C" : "#a8a29e"}
-        strokeWidth={isHighlighted ? 0.35 : 0.2}
+        strokeWidth={isHighlighted ? 0.25 : 0.12}
         strokeDasharray="0.8,0.8"
       />
 
@@ -144,7 +151,7 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
         x2={isHorizontal ? dimX2 + overshootDim : dimX2}
         y2={isHorizontal ? dimY2 : dimY2 + overshootDim}
         stroke={isHighlighted ? "#00A69C" : "#78716c"}
-        strokeWidth={isHighlighted ? 0.45 : 0.3}
+        strokeWidth={isHighlighted ? 0.35 : 0.2}
       />
 
       {/* 3. Architectural Ticks (45-degree slashes at intersections) */}
@@ -154,7 +161,7 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
         x2={tickX1_2}
         y2={tickY1_2}
         stroke={isHighlighted ? "#00A69C" : "#44403c"}
-        strokeWidth={isHighlighted ? 0.7 : 0.45}
+        strokeWidth={isHighlighted ? 0.5 : 0.3}
       />
       <line
         x1={tickX2_1}
@@ -162,10 +169,10 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
         x2={tickX2_2}
         y2={tickY2_2}
         stroke={isHighlighted ? "#00A69C" : "#44403c"}
-        strokeWidth={isHighlighted ? 0.7 : 0.45}
+        strokeWidth={isHighlighted ? 0.5 : 0.3}
       />
 
-      {/* 4. Dimension Text (rests above the line, aligned) */}
+      {/* 4. Dimension Text (rests centered on the line, aligned) */}
       <g
         className={isInteractive ? "cursor-pointer group" : "cursor-default"}
         onClick={(e) => {
@@ -175,50 +182,59 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
           }
         }}
       >
-        {/* Transparent background pill that turns subtle teal on hover to guide clicks */}
-        {isInteractive && (
-          <rect
-            x={midX - hoverWidth / 2}
-            y={midY - hoverHeight / 2}
-            width={hoverWidth}
-            height={hoverHeight}
-            rx={1}
-            fill="transparent"
-            className="group-hover:fill-teal-500/10 group-hover:stroke-teal-500/30 transition-all duration-150"
-            stroke="transparent"
-            strokeWidth={0.15}
-            transform={!isHorizontal ? `rotate(-90, ${midX}, ${midY})` : ""}
-          />
-        )}
+        {/* Invisible larger hover/click target */}
+        <rect
+          x={midX - Math.max(12, hoverWidth) / 2}
+          y={midY - 6}
+          width={Math.max(12, hoverWidth)}
+          height={12}
+          fill="transparent"
+          className="pointer-events-auto"
+        />
 
-        {/* Text Group */}
-        <g transform={!isHorizontal ? `rotate(-90, ${midX}, ${midY})` : ""}>
-          {/* Label (tiny name below/above value) */}
-          <text
-            x={midX}
-            y={midY - 4.1}
-            textAnchor="middle"
-            fill={isHighlighted ? "#00A69C" : "#78716c"}
-            fontSize={1.7}
-            fontWeight="bold"
-            className="uppercase tracking-widest pointer-events-none transition-colors duration-150"
-          >
-            {labelText}
-          </text>
-          
-          {/* Value */}
-          <text
-            x={midX}
-            y={midY - 1.0}
-            textAnchor="middle"
-            fill={isHighlighted ? "#00A69C" : "#1c1917"}
-            fontSize={3.2}
-            fontWeight="bold"
-            fontFamily="monospace"
-            className="pointer-events-none transition-colors duration-150 group-hover:fill-[#00A69C]"
-          >
-            {value}
-          </text>
+        {/* Background pill to break the line behind the text */}
+        <rect
+          x={boxX}
+          y={boxY}
+          width={boxWidth}
+          height={boxHeight}
+          rx={0.5}
+          fill="#fafaf9"
+          className="group-hover:fill-teal-500/10 group-hover:stroke-teal-500/30 transition-all duration-150"
+          stroke={isHighlighted ? "#00A69C" : (isInteractive ? "#1c1917" : "#a8a29e")}
+          strokeWidth={isHighlighted ? 0.3 : 0.15}
+        />
+
+        {/* Value */}
+        <text
+          x={midX}
+          y={midY + 0.8}
+          textAnchor="middle"
+          fill={isHighlighted ? "#00A69C" : "#1c1917"}
+          fontSize={2.2}
+          fontWeight="bold"
+          fontFamily="monospace"
+          className="pointer-events-none transition-colors duration-150 group-hover:fill-[#00A69C]"
+        >
+          {value}
+        </text>
+
+        {/* Label (appearing on hover above the box) */}
+        <g className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none">
+          {lines.map((line, i) => (
+            <text
+              key={i}
+              x={midX}
+              y={midY - boxHeight / 2 - 1.2 - (lines.length - 1 - i) * 1.4}
+              textAnchor="middle"
+              fill="#00A69C"
+              fontSize={1.2}
+              fontWeight="bold"
+              className="uppercase tracking-widest transition-colors duration-150"
+            >
+              {line}
+            </text>
+          ))}
         </g>
       </g>
     </g>
@@ -234,14 +250,29 @@ const SettingsWorkspace = ({
   doorType,
   doors,
   updateDoor,
+  profile,
 }) => {
   const [focusedField, setFocusedField] = useState(null);
   const [inlineEdit, setInlineEdit] = useState(null); // { fieldName, x, y, value }
-  const [showGrooves, setShowGrooves] = useState(true);
+  const showGrooves = true;
 
   // Reference door size selection state
   const [refDoorId, setRefDoorId] = useState("default");
   const inlineInputRef = useRef(null);
+
+  // Sync refDoorId with doors list
+  useEffect(() => {
+    if (doors.length === 0) {
+      if (refDoorId !== "default") {
+        setRefDoorId("default");
+      }
+    } else {
+      const exists = doors.some((d) => String(d.id) === String(refDoorId));
+      if (!exists || refDoorId === "default") {
+        setRefDoorId(String(doors[0].id));
+      }
+    }
+  }, [doors, refDoorId]);
 
   // Safeguard: sanitize settings state by merging with defaults and ensuring numeric types
   const activeSettings = useMemo(() => {
@@ -254,8 +285,14 @@ const SettingsWorkspace = ({
         merged[key] = DEFAULT_SETTINGS[key] ?? 0;
       }
     });
+
+    if (profile === "Ovolo") {
+      merged.grooveDepth = 1.5;
+      merged.tongueLength = 1.5;
+    }
+
     return merged;
-  }, [settings]);
+  }, [settings, profile]);
 
 
 
@@ -327,11 +364,11 @@ const SettingsWorkspace = ({
     setFocusedField(fieldName);
     let initialValue = "";
     if (fieldName === "doorWidthRef") {
-      initialValue = formatDecimalInput(previewWidth);
+      initialValue = formatInputDimension(previewWidth);
     } else if (fieldName === "doorHeightRef") {
-      initialValue = formatDecimalInput(previewHeight);
+      initialValue = formatInputDimension(previewHeight);
     } else {
-      initialValue = formatDecimalInput(activeSettings[fieldName]);
+      initialValue = formatInputDimension(activeSettings[fieldName]);
     }
     setInlineEdit({
       fieldName,
@@ -399,11 +436,17 @@ const SettingsWorkspace = ({
     }
   };
 
-  // Helper dimensions SVG calculation (offset to left & top for dimension stacks)
-  const minX = -32;
-  const minY = -22;
-  const viewBoxWidth = previewWidth + 54; // 32 left padding, 22 right padding
-  const viewBoxHeight = previewHeight + 30; // 22 top padding, 8 bottom padding
+  // Helper functions for dynamic dimension spacing
+  const getBoxWidth = (labelRaw, valueRaw) => {
+    const lines = labelRaw.split('\n');
+    const maxLineLen = Math.max(...lines.map(l => l.length));
+    const valLen = String(valueRaw).length;
+    return Math.max(8, Math.max(maxLineLen * 1.1, valLen * 1.5) + 3);
+  };
+  const getBoxHeight = (labelRaw) => {
+    const lines = labelRaw.split('\n');
+    return (lines.length - 1) * 1.4 + 5.5;
+  };
 
   // Helper variables for rail calculations
   const leftStile = geometry.stiles.find((s) => s.id === "left-stile");
@@ -414,6 +457,58 @@ const SettingsWorkspace = ({
   // Calculations for 3 Panel spacing representation
   const availSpace = previewHeight - activeSettings.topRailWidth - activeSettings.bottomRailWidth - 2 * (activeSettings.intermediateRailWidth || 0);
   const panelHeight3P = Math.max(0, availSpace / 3);
+
+  // --- Dynamic Layout ---
+  const gap = 2.5;
+
+  // Horizontal (Top Side)
+  const innerHorizH = Math.max(
+    getBoxHeight("Stile\nWidth"),
+    getBoxHeight("Panel\nWidth")
+  );
+  const innerHorizOffsetY = - innerHorizH / 2 - 3; // Initial gap from door
+
+  const outerHorizH = getBoxHeight("Door\nWidth");
+  const outerHorizOffsetY = innerHorizOffsetY - (innerHorizH / 2) - gap - (outerHorizH / 2);
+
+  // Vertical (Left Side)
+  let innerVertW = 0;
+  if (topRail) innerVertW = Math.max(innerVertW, getBoxWidth("Top\nRail", formatInputDimension(activeSettings.topRailWidth)));
+  if (bottomRail) innerVertW = Math.max(innerVertW, getBoxWidth("Bottom\nRail", formatInputDimension(activeSettings.bottomRailWidth)));
+  if (doorType === "2 Panel") {
+    innerVertW = Math.max(innerVertW, getBoxWidth("Lock\nRail", formatInputDimension(activeSettings.lockRailWidth)));
+    innerVertW = Math.max(innerVertW, getBoxWidth("Panel\nHeight", formatInputDimension(Math.max(0, previewHeight - activeSettings.heightToLockRail - activeSettings.lockRailWidth / 2 - activeSettings.topRailWidth))));
+  }
+  if (doorType === "3 Panel") {
+    innerVertW = Math.max(innerVertW, getBoxWidth("Intermediate\nRail", formatInputDimension(activeSettings.intermediateRailWidth)));
+    innerVertW = Math.max(innerVertW, getBoxWidth("Panel\nHeight", formatInputDimension(panelHeight3P)));
+  }
+  if (doorType === "1 Panel") {
+    innerVertW = Math.max(innerVertW, getBoxWidth("Panel\nHeight", formatInputDimension(Math.max(0, previewHeight - activeSettings.topRailWidth - activeSettings.bottomRailWidth))));
+  }
+
+  const innerVertOffsetX = - innerVertW / 2 - 3;
+
+  let midVertW = 0;
+  let midVertOffsetX = innerVertOffsetX;
+  if (doorType === "2 Panel") {
+    midVertW = getBoxWidth("Lock\nHeight", formatInputDimension(activeSettings.heightToLockRail));
+    midVertOffsetX = innerVertOffsetX - (innerVertW / 2) - gap - (midVertW / 2);
+  } else {
+    // If no mid layer, pull the midVertOffsetX to inner layer so outer is closer
+    midVertW = innerVertW;
+  }
+
+  const outerVertW = getBoxWidth("Door\nHeight", formatInputDimension(previewHeight));
+  const outerVertOffsetX = midVertOffsetX - (midVertW / 2) - gap - (outerVertW / 2);
+
+  // Helper dimensions SVG calculation (offset to left & top for dimension stacks)
+  const minX = outerVertOffsetX - (outerVertW / 2) - 4;
+  const minY = outerHorizOffsetY - (outerHorizH / 2) - 4;
+  const viewBoxWidth = previewWidth - minX + 22; // 22 right padding
+  const viewBoxHeight = previewHeight - minY + 8; // 8 bottom padding
+
+
 
   return (
     <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 md:p-6 lg:p-8 overflow-hidden select-none animate-fade-in">
@@ -441,7 +536,7 @@ const SettingsWorkspace = ({
             <div className="flex items-center gap-3">
               {/* Reference Door Size Dropdown */}
               <div className="flex items-center gap-1.5">
-                <label className="text-xs font-bold text-stone-600 uppercase">Preview Size:</label>
+                <label className="text-xs font-bold text-stone-600 uppercase">Currently Viewing:</label>
                 <div className="relative">
                   <select
                     value={refDoorId}
@@ -451,29 +546,18 @@ const SettingsWorkspace = ({
                     }}
                     className="text-xs border border-stone-900 rounded-sm bg-white py-1 px-2 pr-6 outline-none focus:border-[#00A69C] cursor-pointer appearance-none font-semibold"
                   >
-                    <option value="default">Standard 36" x 96"</option>
+                    {doors.length === 0 && (
+                      <option value="default">Standard 36" x 96"</option>
+                    )}
                     {doors.map((d, index) => (
                       <option key={d.id} value={d.id}>
-                        Door {index + 1} ({toFraction(d.width)} × {toFraction(d.height)})
+                        Door {doors.length - index} ({formatInputDimension(d.width)} × {formatInputDimension(d.height)})
                       </option>
                     ))}
                   </select>
                   <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none" size={12} />
                 </div>
               </div>
-
-              {/* Show Grooves Toggle */}
-              <button
-                type="button"
-                onClick={() => setShowGrooves(!showGrooves)}
-                className={`text-xs px-2 py-1 rounded-sm border font-bold transition-all cursor-pointer ${showGrooves
-                  ? "bg-teal-50 text-teal-800 border-teal-500"
-                  : "bg-stone-50 text-stone-600 border-stone-300 hover:border-stone-400"
-                  }`}
-                title="Toggle dashed lines showing panels inside rails/stiles"
-              >
-                Grooves
-              </button>
             </div>
           </div>
 
@@ -489,12 +573,12 @@ const SettingsWorkspace = ({
           )}
 
           {/* SVG Canvas Container */}
-          <div className="flex-1 relative flex items-center justify-center bg-stone-50/50 p-6 min-h-[300px] lg:min-h-0 overflow-hidden">
+          <div className="flex-1 relative flex items-center justify-center bg-stone-50/50 p-6 min-h-[400px] lg:min-h-0 overflow-hidden">
 
             {/* The SVG element */}
             <svg
               viewBox={`${minX} ${minY} ${viewBoxWidth} ${viewBoxHeight}`}
-              className="max-h-[50vh] lg:max-h-[60vh] max-w-full drop-shadow-md select-none transition-all duration-300"
+              className="max-h-[65vh] lg:max-h-[80vh] max-w-full drop-shadow-md select-none transition-all duration-300"
               style={{ aspectRatio: `${viewBoxWidth}/${viewBoxHeight}` }}
               onClick={() => {
                 setFocusedField(null);
@@ -564,7 +648,7 @@ const SettingsWorkspace = ({
                     height={s.height}
                     fill="#c8a96e"
                     stroke="#292524"
-                    strokeWidth={0.3}
+                    strokeWidth={0.15}
                     className={`transition-all duration-150 ${focusedField === "stileWidth" ? "stroke-[#00A69C] stroke-[0.6]" : ""}`}
                   />
                 ))}
@@ -585,7 +669,7 @@ const SettingsWorkspace = ({
                       height={r.height}
                       fill="#c8a96e"
                       stroke="#292524"
-                      strokeWidth={0.3}
+                      strokeWidth={0.15}
                       className={`transition-all duration-150 ${focusedField === activeField ? "stroke-[#00A69C] stroke-[0.6]" : ""}`}
                     />
                   );
@@ -600,7 +684,7 @@ const SettingsWorkspace = ({
                   x2={previewWidth + 2}
                   y2={previewHeight - activeSettings.heightToLockRail}
                   stroke="#00A69C"
-                  strokeWidth={0.2}
+                  strokeWidth={0.15}
                   strokeDasharray="1.5,1.5"
                   className="pointer-events-none"
                 />
@@ -616,9 +700,9 @@ const SettingsWorkspace = ({
                 x2={previewWidth}
                 y2={0}
                 offsetX={0}
-                offsetY={-18}
-                value={`${toFraction(previewWidth)}`}
-                labelText="Door Width"
+                offsetY={outerHorizOffsetY}
+                value={`${formatInputDimension(previewWidth)}`}
+                labelText={"Door\nWidth"}
                 fieldName="doorWidthRef"
                 focusedField={focusedField}
                 onClick={handlePillClick}
@@ -632,9 +716,9 @@ const SettingsWorkspace = ({
                   x2={activeSettings.stileWidth}
                   y2={0}
                   offsetX={0}
-                  offsetY={-10}
-                  value={`${toFraction(activeSettings.stileWidth)}`}
-                  labelText="Stile W."
+                  offsetY={innerHorizOffsetY}
+                  value={`${formatInputDimension(activeSettings.stileWidth)}`}
+                  labelText={"Stile\nWidth"}
                   fieldName="stileWidth"
                   focusedField={focusedField}
                   onClick={handlePillClick}
@@ -648,9 +732,9 @@ const SettingsWorkspace = ({
                 x2={Math.max(activeSettings.stileWidth, previewWidth - activeSettings.stileWidth)}
                 y2={0}
                 offsetX={0}
-                offsetY={-10}
-                value={`${toFraction(Math.max(0, previewWidth - 2 * activeSettings.stileWidth))}`}
-                labelText="Panel W."
+                offsetY={innerHorizOffsetY}
+                value={`${formatInputDimension(Math.max(0, previewWidth - 2 * activeSettings.stileWidth))}`}
+                labelText={"Panel\nWidth"}
                 fieldName="panelWidthRef"
                 focusedField={focusedField}
                 onClick={handlePillClick}
@@ -663,9 +747,9 @@ const SettingsWorkspace = ({
                 x2={previewWidth}
                 y2={0}
                 offsetX={0}
-                offsetY={-10}
-                value={`${toFraction(activeSettings.stileWidth)}`}
-                labelText="Stile W."
+                offsetY={innerHorizOffsetY}
+                value={`${formatInputDimension(activeSettings.stileWidth)}`}
+                labelText={"Stile\nWidth"}
                 fieldName="stileWidth"
                 focusedField={focusedField}
                 onClick={handlePillClick}
@@ -679,10 +763,10 @@ const SettingsWorkspace = ({
                 y1={0}
                 x2={0}
                 y2={previewHeight}
-                offsetX={-28}
+                offsetX={outerVertOffsetX}
                 offsetY={0}
-                value={`${toFraction(previewHeight)}`}
-                labelText="Door Height"
+                value={`${formatInputDimension(previewHeight)}`}
+                labelText={"Door\nHeight"}
                 fieldName="doorHeightRef"
                 focusedField={focusedField}
                 onClick={handlePillClick}
@@ -695,10 +779,10 @@ const SettingsWorkspace = ({
                   y1={previewHeight - activeSettings.heightToLockRail}
                   x2={0}
                   y2={previewHeight}
-                  offsetX={-19}
+                  offsetX={midVertOffsetX}
                   offsetY={0}
-                  value={`${toFraction(activeSettings.heightToLockRail)}`}
-                  labelText="Lock Ht."
+                  value={`${formatInputDimension(activeSettings.heightToLockRail)}`}
+                  labelText={"Lock\nHeight"}
                   fieldName="heightToLockRail"
                   focusedField={focusedField}
                   onClick={handlePillClick}
@@ -712,10 +796,10 @@ const SettingsWorkspace = ({
                   y1={0}
                   x2={0}
                   y2={activeSettings.topRailWidth}
-                  offsetX={-10}
+                  offsetX={innerVertOffsetX}
                   offsetY={0}
-                  value={`${toFraction(activeSettings.topRailWidth)}`}
-                  labelText="Top Rail"
+                  value={`${formatInputDimension(activeSettings.topRailWidth)}`}
+                  labelText={"Top\nRail"}
                   fieldName="topRailWidth"
                   focusedField={focusedField}
                   onClick={handlePillClick}
@@ -727,14 +811,14 @@ const SettingsWorkspace = ({
                 <>
                   {/* Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={previewWidth}
+                    x1={0}
                     y1={activeSettings.topRailWidth}
-                    x2={previewWidth}
+                    x2={0}
                     y2={Math.max(activeSettings.topRailWidth, previewHeight - activeSettings.bottomRailWidth)}
-                    offsetX={10}
+                    offsetX={innerVertOffsetX}
                     offsetY={0}
-                    value={`${toFraction(Math.max(0, previewHeight - activeSettings.topRailWidth - activeSettings.bottomRailWidth))}`}
-                    labelText="Panel Ht."
+                    value={`${formatInputDimension(Math.max(0, previewHeight - activeSettings.topRailWidth - activeSettings.bottomRailWidth))}`}
+                    labelText={"Panel\nHeight"}
                     fieldName="panelHeightRef"
                     focusedField={focusedField}
                     onClick={handlePillClick}
@@ -747,14 +831,14 @@ const SettingsWorkspace = ({
                 <>
                   {/* Upper Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={previewWidth}
+                    x1={0}
                     y1={activeSettings.topRailWidth}
-                    x2={previewWidth}
+                    x2={0}
                     y2={Math.max(activeSettings.topRailWidth, previewHeight - activeSettings.heightToLockRail - activeSettings.lockRailWidth / 2)}
-                    offsetX={10}
+                    offsetX={innerVertOffsetX}
                     offsetY={0}
-                    value={`${toFraction(Math.max(0, previewHeight - activeSettings.heightToLockRail - activeSettings.lockRailWidth / 2 - activeSettings.topRailWidth))}`}
-                    labelText="Panel Ht."
+                    value={`${formatInputDimension(Math.max(0, previewHeight - activeSettings.heightToLockRail - activeSettings.lockRailWidth / 2 - activeSettings.topRailWidth))}`}
+                    labelText={"Panel\nHeight"}
                     fieldName="upperPanelHeightRef"
                     focusedField={focusedField}
                     onClick={handlePillClick}
@@ -766,10 +850,10 @@ const SettingsWorkspace = ({
                     y1={previewHeight - activeSettings.heightToLockRail - activeSettings.lockRailWidth / 2}
                     x2={0}
                     y2={previewHeight - activeSettings.heightToLockRail + activeSettings.lockRailWidth / 2}
-                    offsetX={-10}
+                    offsetX={innerVertOffsetX}
                     offsetY={0}
-                    value={`${toFraction(activeSettings.lockRailWidth)}`}
-                    labelText="Lock Rail"
+                    value={`${formatInputDimension(activeSettings.lockRailWidth)}`}
+                    labelText={"Lock\nRail"}
                     fieldName="lockRailWidth"
                     focusedField={focusedField}
                     onClick={handlePillClick}
@@ -777,14 +861,14 @@ const SettingsWorkspace = ({
 
                   {/* Lower Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={previewWidth}
+                    x1={0}
                     y1={previewHeight - activeSettings.heightToLockRail + activeSettings.lockRailWidth / 2}
-                    x2={previewWidth}
+                    x2={0}
                     y2={Math.max(previewHeight - activeSettings.heightToLockRail + activeSettings.lockRailWidth / 2, previewHeight - activeSettings.bottomRailWidth)}
-                    offsetX={10}
+                    offsetX={innerVertOffsetX}
                     offsetY={0}
-                    value={`${toFraction(Math.max(0, activeSettings.heightToLockRail - activeSettings.lockRailWidth / 2 - activeSettings.bottomRailWidth))}`}
-                    labelText="Panel Ht."
+                    value={`${formatInputDimension(Math.max(0, activeSettings.heightToLockRail - activeSettings.lockRailWidth / 2 - activeSettings.bottomRailWidth))}`}
+                    labelText={"Panel\nHeight"}
                     fieldName="lowerPanelHeightRef"
                     focusedField={focusedField}
                     onClick={handlePillClick}
@@ -797,14 +881,14 @@ const SettingsWorkspace = ({
                 <>
                   {/* Upper Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={previewWidth}
+                    x1={0}
                     y1={activeSettings.topRailWidth}
-                    x2={previewWidth}
+                    x2={0}
                     y2={activeSettings.topRailWidth + panelHeight3P}
-                    offsetX={10}
+                    offsetX={innerVertOffsetX}
                     offsetY={0}
-                    value={`${toFraction(panelHeight3P)}`}
-                    labelText="Panel Ht."
+                    value={`${formatInputDimension(panelHeight3P)}`}
+                    labelText={"Panel\nHeight"}
                     fieldName="upperPanelHeightRef"
                     focusedField={focusedField}
                     onClick={handlePillClick}
@@ -816,10 +900,10 @@ const SettingsWorkspace = ({
                     y1={activeSettings.topRailWidth + panelHeight3P}
                     x2={0}
                     y2={activeSettings.topRailWidth + panelHeight3P + activeSettings.intermediateRailWidth}
-                    offsetX={-10}
+                    offsetX={innerVertOffsetX}
                     offsetY={0}
-                    value={`${toFraction(activeSettings.intermediateRailWidth)}`}
-                    labelText="Inter. Rail"
+                    value={`${formatInputDimension(activeSettings.intermediateRailWidth)}`}
+                    labelText={"Intermediate\nRail"}
                     fieldName="intermediateRailWidth"
                     focusedField={focusedField}
                     onClick={handlePillClick}
@@ -827,14 +911,14 @@ const SettingsWorkspace = ({
 
                   {/* Middle Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={previewWidth}
+                    x1={0}
                     y1={activeSettings.topRailWidth + panelHeight3P + activeSettings.intermediateRailWidth}
-                    x2={previewWidth}
+                    x2={0}
                     y2={activeSettings.topRailWidth + 2 * panelHeight3P + activeSettings.intermediateRailWidth}
-                    offsetX={10}
+                    offsetX={innerVertOffsetX}
                     offsetY={0}
-                    value={`${toFraction(panelHeight3P)}`}
-                    labelText="Panel Ht."
+                    value={`${formatInputDimension(panelHeight3P)}`}
+                    labelText={"Panel\nHeight"}
                     fieldName="middlePanelHeightRef"
                     focusedField={focusedField}
                     onClick={handlePillClick}
@@ -846,10 +930,10 @@ const SettingsWorkspace = ({
                     y1={activeSettings.topRailWidth + 2 * panelHeight3P + activeSettings.intermediateRailWidth}
                     x2={0}
                     y2={activeSettings.topRailWidth + 2 * panelHeight3P + 2 * activeSettings.intermediateRailWidth}
-                    offsetX={-10}
+                    offsetX={innerVertOffsetX}
                     offsetY={0}
-                    value={`${toFraction(activeSettings.intermediateRailWidth)}`}
-                    labelText="Inter. Rail"
+                    value={`${formatInputDimension(activeSettings.intermediateRailWidth)}`}
+                    labelText={"Intermediate\nRail"}
                     fieldName="intermediateRailWidth"
                     focusedField={focusedField}
                     onClick={handlePillClick}
@@ -857,14 +941,14 @@ const SettingsWorkspace = ({
 
                   {/* Lower Panel Height (Uneditable) */}
                   <DimensionLine
-                    x1={previewWidth}
+                    x1={0}
                     y1={activeSettings.topRailWidth + 2 * panelHeight3P + 2 * activeSettings.intermediateRailWidth}
-                    x2={previewWidth}
+                    x2={0}
                     y2={previewHeight - activeSettings.bottomRailWidth}
-                    offsetX={10}
+                    offsetX={innerVertOffsetX}
                     offsetY={0}
-                    value={`${toFraction(panelHeight3P)}`}
-                    labelText="Panel Ht."
+                    value={`${formatInputDimension(panelHeight3P)}`}
+                    labelText={"Panel\nHeight"}
                     fieldName="lowerPanelHeightRef"
                     focusedField={focusedField}
                     onClick={handlePillClick}
@@ -879,10 +963,10 @@ const SettingsWorkspace = ({
                   y1={previewHeight - activeSettings.bottomRailWidth}
                   x2={0}
                   y2={previewHeight}
-                  offsetX={-10}
+                  offsetX={innerVertOffsetX}
                   offsetY={0}
-                  value={`${toFraction(activeSettings.bottomRailWidth)}`}
-                  labelText="Bot Rail"
+                  value={`${formatInputDimension(activeSettings.bottomRailWidth)}`}
+                  labelText={"Bottom\nRail"}
                   fieldName="bottomRailWidth"
                   focusedField={focusedField}
                   onClick={handlePillClick}
@@ -971,7 +1055,8 @@ const SettingsWorkspace = ({
             {SETTING_GROUPS.map((group) => {
               // Filter fields needed for the selected style
               const availableFields = group.fields.filter((field) =>
-                STYLE_REQUIRED_SETTINGS[doorType]?.includes(field.name)
+                STYLE_REQUIRED_SETTINGS[doorType]?.includes(field.name) &&
+                !(profile === "Ovolo" && (field.name === "grooveDepth" || field.name === "tongueLength"))
               );
 
               if (availableFields.length === 0) return null;
@@ -1043,7 +1128,7 @@ const SettingsWorkspace = ({
               onClick={onClose}
               className="px-4 py-2 bg-[#00A69C] hover:bg-teal-700 text-white rounded-sm font-bold text-xs flex items-center gap-1 transition-all cursor-pointer shadow-sm hover:shadow"
             >
-              Apply & Close
+              Close
             </button>
           </div>
         </div>
