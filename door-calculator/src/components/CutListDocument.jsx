@@ -264,7 +264,7 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
   return (
     <div className="flex flex-col items-center gap-8 print:gap-0 print:block w-full">
       {/* PAGE 1 */}
-      <div className={pageClassName(true)}>
+      <div id="cutlist-page-1" className={pageClassName(true)}>
         {renderHeader(1)}
 
         <div className="grid grid-cols-2 gap-8 flex-grow">
@@ -394,7 +394,7 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
 
       {/* PAGE 2 */}
       {hasPage2 && (
-        <div className={pageClassName(false)}>
+        <div id="cutlist-page-2" className={pageClassName(false)}>
           {renderHeader(2)}
 
           <div className="grid grid-cols-2 gap-8 flex-grow">

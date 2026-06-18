@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, FileText, FolderOpen, Plus, Printer, Save, SlidersHorizontal, Trash2 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
+import { PDFDocument } from "pdf-lib";
+import html2canvas from "html2canvas";
 import { calculateData } from "./calculations";
 import CutListDocument from "./components/CutListDocument";
 import DimensionInput from "./components/DimensionInput";
@@ -188,7 +190,7 @@ const App = () => {
     return true;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const stateToSave = {
       jobName,
       doorType,
@@ -200,15 +202,56 @@ const App = () => {
       appVersion: "1.0",
     };
 
-    const blob = new Blob([JSON.stringify(stateToSave, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${jobName.replace(/ /g, "_") || "door_job"}.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(url);
+    const toastId = toast.loading("Generating PDF...");
+
+    try {
+      const pdfDoc = await PDFDocument.create();
+      pdfDoc.setSubject(JSON.stringify(stateToSave));
+
+      const capturePage = async (pageId) => {
+        const element = document.getElementById(pageId);
+        if (!element) return;
+        
+        const hasShadow = element.classList.contains("shadow-2xl");
+        if (hasShadow) element.classList.remove("shadow-2xl");
+        
+        const canvas = await html2canvas(element, { scale: 2 });
+        
+        if (hasShadow) element.classList.add("shadow-2xl");
+        
+        const imgData = canvas.toDataURL("image/png");
+        const pngImage = await pdfDoc.embedPng(imgData);
+        
+        const page = pdfDoc.addPage([612, 792]);
+        const { width, height } = pngImage.scaleToFit(612, 792);
+        
+        page.drawImage(pngImage, {
+          x: (612 - width) / 2,
+          y: (792 - height) / 2,
+          width,
+          height,
+        });
+      };
+
+      await capturePage("cutlist-page-1");
+      await capturePage("cutlist-page-2");
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${jobName.replace(/ /g, "_") || "door_job"}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      
+      toast.success("PDF saved successfully!", { id: toastId });
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      toast.error("Failed to generate PDF.", { id: toastId });
+    }
   };
 
   const handleLoad = (event) => {
@@ -219,9 +262,23 @@ const App = () => {
     }
 
     const reader = new FileReader();
-    reader.onload = (loadEvent) => {
+    reader.onload = async (loadEvent) => {
       try {
-        const loadedState = JSON.parse(loadEvent.target.result);
+        let loadedStateStr = null;
+        
+        if (file.name.toLowerCase().endsWith(".pdf")) {
+          const pdfDoc = await PDFDocument.load(loadEvent.target.result);
+          loadedStateStr = pdfDoc.getSubject();
+          if (!loadedStateStr) {
+            toast.error("PDF does not contain readable save data.");
+            return;
+          }
+        } else {
+          const decoder = new TextDecoder("utf-8");
+          loadedStateStr = decoder.decode(loadEvent.target.result);
+        }
+
+        const loadedState = JSON.parse(loadedStateStr);
         const isValidState =
           typeof loadedState.jobName === "string" &&
           typeof loadedState.doorType === "string" &&
@@ -268,13 +325,14 @@ const App = () => {
         }
         if (loadedState.profile) setProfile(loadedState.profile);
         if (loadedState.finish) setFinish(loadedState.finish);
+        toast.success("Job loaded successfully!");
       } catch (error) {
         console.error("Failed to load or parse file:", error);
-        toast.error("Failed to load file. It may be corrupted.");
+        toast.error("Failed to load file. It may be corrupted or not a valid save PDF.");
       }
     };
 
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
     event.target.value = null;
   };
 
@@ -339,9 +397,40 @@ const App = () => {
       <div className="max-w-4xl mx-auto space-y-6 mb-8 print:hidden">
         {/* Main Settings Card */}
         <div className="bg-white rounded-sm shadow-sm p-6 border border-stone-900">
-          <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
-            <FileText className="text-[#00A69C]" /> Door Parts List Calculator
-          </h2>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <FileText className="text-[#00A69C]" /> Door Parts List Calculator
+            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="file"
+                id="loadFile"
+                className="hidden"
+                onChange={handleLoad}
+                accept=".pdf,.json"
+              />
+              <label
+                htmlFor="loadFile"
+                className={`${secondaryButtonClassName} cursor-pointer`}
+              >
+                <FolderOpen size={18} /> Load
+              </label>
+
+              <button
+                onClick={handleSave}
+                className={secondaryButtonClassName}
+              >
+                <Save size={18} /> Save
+              </button>
+
+              <button
+                onClick={() => window.print()}
+                className={primaryButtonClassName}
+              >
+                <Printer size={18} /> Print
+              </button>
+            </div>
+          </div>
 
           {/* Job Name */}
           <div className="mb-6">
@@ -512,7 +601,7 @@ const App = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <button
                 onClick={addDoor}
@@ -530,34 +619,6 @@ const App = () => {
                 <SlidersHorizontal size={18} className="stroke-[2.5]" />
               </button>
             </div>
-
-            <input
-              type="file"
-              id="loadFile"
-              className="hidden"
-              onChange={handleLoad}
-              accept=".json"
-            />
-            <label
-              htmlFor="loadFile"
-              className={`${secondaryButtonClassName} cursor-pointer`}
-            >
-              <FolderOpen size={18} /> Load
-            </label>
-
-            <button
-              onClick={handleSave}
-              className={secondaryButtonClassName}
-            >
-              <Save size={18} /> Save
-            </button>
-
-            <button
-              onClick={() => window.print()}
-              className={primaryButtonClassName}
-            >
-              <Printer size={18} /> Print Cut List
-            </button>
 
             <button
               onClick={handleClearAll}
