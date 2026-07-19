@@ -131,7 +131,7 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
         x2={extX1_end}
         y2={extY1_end}
         stroke={isHighlighted ? "#00A69C" : "#a8a29e"}
-        strokeWidth={isHighlighted ? 0.25 : 0.12}
+        strokeWidth={isHighlighted ? 0.12 : 0.12}
         strokeDasharray="0.8,0.8"
       />
       <line
@@ -140,7 +140,7 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
         x2={extX2_end}
         y2={extY2_end}
         stroke={isHighlighted ? "#00A69C" : "#a8a29e"}
-        strokeWidth={isHighlighted ? 0.25 : 0.12}
+        strokeWidth={isHighlighted ? 0.12 : 0.12}
         strokeDasharray="0.8,0.8"
       />
 
@@ -161,7 +161,7 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
         x2={tickX1_2}
         y2={tickY1_2}
         stroke={isHighlighted ? "#00A69C" : "#44403c"}
-        strokeWidth={isHighlighted ? 0.5 : 0.3}
+        strokeWidth={isHighlighted ? 0.3 : 0.3}
       />
       <line
         x1={tickX2_1}
@@ -169,7 +169,7 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
         x2={tickX2_2}
         y2={tickY2_2}
         stroke={isHighlighted ? "#00A69C" : "#44403c"}
-        strokeWidth={isHighlighted ? 0.5 : 0.3}
+        strokeWidth={isHighlighted ? 0.3 : 0.3}
       />
 
       {/* 4. Dimension Text (rests centered on the line, aligned) */}
@@ -202,7 +202,7 @@ const DimensionLine = ({ x1, y1, x2, y2, offsetX, offsetY, value, labelText, fie
           fill="#fafaf9"
           className="group-hover:fill-teal-500/10 group-hover:stroke-teal-500/30 transition-all duration-150"
           stroke={isHighlighted ? "#00A69C" : (isInteractive ? "#1c1917" : "#a8a29e")}
-          strokeWidth={isHighlighted ? 0.3 : 0.15}
+          strokeWidth={isHighlighted ? 0.15 : 0.15}
         />
 
         {/* Value */}
@@ -251,6 +251,7 @@ const SettingsWorkspace = ({
   doors,
   updateDoor,
   profile,
+  editingDoorId,
 }) => {
   const [focusedField, setFocusedField] = useState(null);
   const [inlineEdit, setInlineEdit] = useState(null); // { fieldName, x, y, value }
@@ -262,7 +263,9 @@ const SettingsWorkspace = ({
 
   // Sync refDoorId with doors list
   useEffect(() => {
-    if (doors.length === 0) {
+    if (editingDoorId && editingDoorId !== "global") {
+      setRefDoorId(String(editingDoorId));
+    } else if (doors.length === 0) {
       if (refDoorId !== "default") {
         setRefDoorId("default");
       }
@@ -272,7 +275,7 @@ const SettingsWorkspace = ({
         setRefDoorId(String(doors[0].id));
       }
     }
-  }, [doors, refDoorId]);
+  }, [doors, refDoorId, editingDoorId]);
 
   // Safeguard: sanitize settings state by merging with defaults and ensuring numeric types
   const activeSettings = useMemo(() => {
@@ -353,7 +356,8 @@ const SettingsWorkspace = ({
   if (!isOpen) return null;
 
   const handleResetSettings = () => {
-    if (window.confirm("Are you sure you want to reset construction settings to factory defaults?")) {
+    const targetName = editingDoorId && editingDoorId !== "global" ? "this door's settings" : "construction settings to factory defaults";
+    if (window.confirm(`Are you sure you want to reset ${targetName}?`)) {
       setSettings(DEFAULT_SETTINGS);
       setFocusedField(null);
       setInlineEdit(null);
@@ -537,26 +541,32 @@ const SettingsWorkspace = ({
               {/* Reference Door Size Dropdown */}
               <div className="flex items-center gap-1.5">
                 <label className="text-xs font-bold text-stone-600 uppercase">Currently Viewing:</label>
-                <div className="relative">
-                  <select
-                    value={refDoorId}
-                    onChange={(e) => {
-                      setRefDoorId(e.target.value);
-                      setInlineEdit(null);
-                    }}
-                    className="text-xs border border-stone-900 rounded-sm bg-white py-1 px-2 pr-6 outline-none focus:border-[#00A69C] cursor-pointer appearance-none font-semibold"
-                  >
-                    {doors.length === 0 && (
-                      <option value="default">Standard 36" x 96"</option>
-                    )}
-                    {doors.map((d, index) => (
-                      <option key={d.id} value={d.id}>
-                        Door {doors.length - index} ({formatInputDimension(d.width)} × {formatInputDimension(d.height)})
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none" size={12} />
-                </div>
+                {editingDoorId && editingDoorId !== "global" ? (
+                  <span className="text-xs font-bold text-stone-900 bg-stone-150 border border-stone-300 py-1 px-2.5 rounded-sm">
+                    Door {doors.findIndex(d => String(d.id) === String(editingDoorId)) + 1}
+                  </span>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={refDoorId}
+                      onChange={(e) => {
+                        setRefDoorId(e.target.value);
+                        setInlineEdit(null);
+                      }}
+                      className="text-xs border border-stone-900 rounded-sm bg-white py-1 px-2 pr-6 outline-none focus:border-[#00A69C] cursor-pointer appearance-none font-semibold"
+                    >
+                      {doors.length === 0 && (
+                        <option value="default">Standard 36" x 96"</option>
+                      )}
+                      {doors.map((d, index) => (
+                        <option key={d.id} value={d.id}>
+                          Door {index + 1} ({formatInputDimension(d.width)} × {formatInputDimension(d.height)})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none" size={12} />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1035,10 +1045,14 @@ const SettingsWorkspace = ({
           <div className="p-4 border-b border-stone-200 bg-stone-50 flex items-center justify-between">
             <div>
               <h3 className="font-bold text-stone-900 text-lg flex items-center gap-2">
-                Configure defaults
+                {editingDoorId && editingDoorId !== "global"
+                  ? `Door ${doors.findIndex(d => String(d.id) === String(editingDoorId)) + 1} Settings`
+                  : "Configure defaults"}
               </h3>
               <p className="text-[11px] font-semibold text-stone-500 uppercase mt-0.5">
-                Apply globally to all door cuts
+                {editingDoorId && editingDoorId !== "global"
+                  ? "Apply only to this door card"
+                  : "Apply globally to all door cuts"}
               </p>
             </div>
             <button

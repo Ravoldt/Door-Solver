@@ -5,10 +5,9 @@ import { PDFDocument } from "pdf-lib";
 import html2canvas from "html2canvas-pro";
 import { calculateData } from "./calculations";
 import CutListDocument from "./components/CutListDocument";
-import DimensionInput from "./components/DimensionInput";
 import DoorCard from "./components/DoorCard";
 import { parseFraction } from "./utils";
-import { DEFAULT_SETTINGS, STYLE_REQUIRED_SETTINGS, DOOR_STYLES, APP_VERSION } from "./doorconfig";
+import { DEFAULT_SETTINGS, DOOR_STYLES, APP_VERSION } from "./doorconfig";
 import SettingsWorkspace from "./components/SettingsWorkspace";
 import MiniDoorStyleSvg from "./components/MiniDoorStyleSvg";
 import { validateDoor } from "./validation";
@@ -35,11 +34,12 @@ const parseDimension = (value, fallback = 0) => {
   return Number.isNaN(parsedValue) ? fallback : parsedValue;
 };
 
-const createDoor = (width = 36, height = 96) => ({
+const createDoor = (width = 36, height = 96, initialSettings = DEFAULT_SETTINGS) => ({
   id: Date.now(),
   width,
   height,
   qty: 1,
+  settings: { ...initialSettings },
 });
 
 const normalizeSettings = (loadedSettings = {}) => {
@@ -65,14 +65,15 @@ const normalizeSettings = (loadedSettings = {}) => {
   };
 };
 
-const normalizeDoor = (door = {}) => {
-  const baseDoor = createDoor();
+const normalizeDoor = (door = {}, globalSettings = DEFAULT_SETTINGS) => {
+  const baseDoor = createDoor(36, 96, globalSettings);
 
   return {
     id: door.id ?? baseDoor.id,
     qty: Number(door.qty ?? baseDoor.qty) || 0,
     width: parseDimension(door.width, baseDoor.width),
     height: parseDimension(door.height, baseDoor.height),
+    settings: door.settings ? normalizeSettings(door.settings) : { ...globalSettings },
   };
 };
 
@@ -102,7 +103,6 @@ const App = () => {
     return PREDEFINED_SPECIES.includes(saved) ? "" : saved;
   });
 
-
   const species = selectedSpecies === "Custom" ? customText : selectedSpecies;
   const [profile, setProfile] = useState(() => {
     return localStorage.getItem("door_calculator_profile") ?? "Shaker";
@@ -118,13 +118,32 @@ const App = () => {
       return DEFAULT_SETTINGS;
     }
   });
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const [activeSettingsDoorId, setActiveSettingsDoorId] = useState(null); // null = closed, 'global' = global settings, door.id = specific door
+  const [pendingGlobalCloseConfirm, setPendingGlobalCloseConfirm] = useState(false);
+  const [initialGlobalSettings, setInitialGlobalSettings] = useState(null);
+
+  useEffect(() => {
+    if (activeSettingsDoorId === "global") {
+      setInitialGlobalSettings({ ...settings });
+    } else {
+      setInitialGlobalSettings(null);
+    }
+  }, [activeSettingsDoorId]);
+
   const [doors, setDoors] = useState(() => {
     try {
       const saved = localStorage.getItem("door_calculator_doors");
-      return saved ? JSON.parse(saved) : [createDoor()];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.map((d) => ({
+          ...d,
+          settings: d.settings || DEFAULT_SETTINGS,
+        }));
+      }
+      return [createDoor(36, 96, DEFAULT_SETTINGS)];
     } catch {
-      return [createDoor()];
+      return [createDoor(36, 96, DEFAULT_SETTINGS)];
     }
   });
 
@@ -157,42 +176,103 @@ const App = () => {
   }, [doors]);
 
   const data = useMemo(() => {
-    const effectiveSettings = profile === "Ovolo" ? { ...settings, grooveDepth: 1.5, tongueLength: 1.5 } : settings;
-    return calculateData(doors, effectiveSettings, doorType, profile);
+    return calculateData(doors, settings, doorType, profile);
   }, [doors, settings, doorType, profile]);
 
   const doorWarnings = useMemo(() => {
-    const effectiveSettings = profile === "Ovolo" ? { ...settings, grooveDepth: 1.5, tongueLength: 1.5 } : settings;
     return doors.map((door) => {
+      const doorSettings = door.settings || settings;
+      const effectiveSettings = profile === "Ovolo" ? { ...doorSettings, grooveDepth: 1.5, tongueLength: 1.5 } : doorSettings;
       const { warnings } = validateDoor(door, effectiveSettings, doorType);
       return { id: door.id, warnings };
     });
   }, [doors, settings, doorType, profile]);
 
-  const updateSetting = (field, value, previewDoor) => {
-    const proposedSettings = { ...settings, [field]: value };
-    const effectiveSettings = profile === "Ovolo" ? { ...proposedSettings, grooveDepth: 1.5, tongueLength: 1.5 } : proposedSettings;
+  const handleUpdateSetting = (field, value, previewDoor) => {
+    if (activeSettingsDoorId === "global") {
+      const proposedSettings = { ...settings, [field]: value };
+      const effectiveSettings = profile === "Ovolo" ? { ...proposedSettings, grooveDepth: 1.5, tongueLength: 1.5 } : proposedSettings;
 
-    // Validate against all active doors
-    for (let i = 0; i < doors.length; i++) {
-      const { errors } = validateDoor(doors[i], effectiveSettings, doorType);
+      // Validate against preview door if provided
+      if (previewDoor) {
+        const { errors } = validateDoor(previewDoor, effectiveSettings, doorType);
+        if (errors.length > 0) {
+          toast.error(errors[0].message);
+          return false;
+        }
+      }
+
+      // Validate against all active doors
+      for (let i = 0; i < doors.length; i++) {
+        const { errors } = validateDoor(doors[i], effectiveSettings, doorType);
+        if (errors.length > 0) {
+          toast.error(errors[0].message);
+          return false;
+        }
+      }
+
+      setSettings(proposedSettings);
+      return true;
+    } else {
+      const doorId = activeSettingsDoorId;
+      const door = doors.find((d) => String(d.id) === String(doorId));
+      if (!door) return false;
+
+      const doorSettings = door.settings || settings;
+      const proposedSettings = { ...doorSettings, [field]: value };
+      const effectiveSettings = profile === "Ovolo" ? { ...proposedSettings, grooveDepth: 1.5, tongueLength: 1.5 } : proposedSettings;
+
+      // Validate this door
+      const { errors } = validateDoor(door, effectiveSettings, doorType);
       if (errors.length > 0) {
         toast.error(errors[0].message);
         return false;
       }
-    }
 
-    // Validate against preview door if provided
-    if (previewDoor) {
-      const { errors } = validateDoor(previewDoor, effectiveSettings, doorType);
-      if (errors.length > 0) {
-        toast.error(errors[0].message);
-        return false;
+      // Update door-specific settings
+      setDoors((prevDoors) =>
+        prevDoors.map((d) => {
+          if (String(d.id) === String(doorId)) {
+            return {
+              ...d,
+              settings: proposedSettings,
+            };
+          }
+          return d;
+        })
+      );
+      return true;
+    }
+  };
+
+  const handleSetSettings = (newSettings) => {
+    if (activeSettingsDoorId === "global") {
+      setSettings(newSettings);
+    } else {
+      const doorId = activeSettingsDoorId;
+      setDoors((prevDoors) =>
+        prevDoors.map((d) => {
+          if (String(d.id) === String(doorId)) {
+            return {
+              ...d,
+              settings: newSettings,
+            };
+          }
+          return d;
+        })
+      );
+    }
+  };
+
+  const handleCloseSettingsWorkspace = () => {
+    if (activeSettingsDoorId === "global" && initialGlobalSettings && doors.length > 0) {
+      const hasChanges = JSON.stringify(settings) !== JSON.stringify(initialGlobalSettings);
+      if (hasChanges) {
+        setPendingGlobalCloseConfirm(true);
+        return;
       }
     }
-
-    setSettings(proposedSettings);
-    return true;
+    setActiveSettingsDoorId(null);
   };
 
   const handleSave = async () => {
@@ -296,13 +376,17 @@ const App = () => {
           return;
         }
 
-        const normalizedSettings = normalizeSettings(loadedState.settings);
-        const normalizedDoors = loadedState.doors.map((door) => normalizeDoor(door));
+        const normalizedGlobalSettings = normalizeSettings(loadedState.settings);
+        const normalizedDoors = loadedState.doors.map((door) =>
+          normalizeDoor(door, normalizedGlobalSettings)
+        );
 
         // Validate loaded state
         let hasLoadError = false;
         for (const door of normalizedDoors) {
-          const { errors } = validateDoor(door, normalizedSettings, loadedState.doorType || doorType);
+          const doorSettings = door.settings || normalizedGlobalSettings;
+          const effectiveSettings = profile === "Ovolo" ? { ...doorSettings, grooveDepth: 1.5, tongueLength: 1.5 } : doorSettings;
+          const { errors } = validateDoor(door, effectiveSettings, loadedState.doorType || doorType);
           if (errors.length > 0) {
             toast.error(`Load failed: ${errors[0].message}`);
             hasLoadError = true;
@@ -316,7 +400,7 @@ const App = () => {
 
         setJobName(loadedState.jobName);
         setDoorType(loadedState.doorType);
-        setSettings(normalizedSettings);
+        setSettings(normalizedGlobalSettings);
         setDoors(normalizedDoors);
         if (loadedState.species) {
           const loadedSp = loadedState.species;
@@ -343,16 +427,16 @@ const App = () => {
 
   const addDoor = () => {
     setDoors((currentDoors) => {
-      const prevDoor = currentDoors[0];
+      const prevDoor = currentDoors[currentDoors.length - 1];
       const newDoor = prevDoor
-        ? createDoor(prevDoor.width, prevDoor.height)
-        : createDoor();
-      return [newDoor, ...currentDoors];
+        ? createDoor(prevDoor.width, prevDoor.height, settings)
+        : createDoor(36, 96, settings);
+      return [...currentDoors, newDoor];
     });
   };
 
   const removeDoor = (id) => {
-    setDoors((currentDoors) => currentDoors.filter((door) => door.id !== id));
+    setDoors((currentDoors) => currentDoors.filter((door) => String(door.id) !== String(id)));
   };
 
   const handleClearAll = () => {
@@ -374,7 +458,7 @@ const App = () => {
           <button
             onClick={() => {
               toast.dismiss(t.id);
-              setDoors([createDoor()]);
+              setDoors([createDoor(36, 96, DEFAULT_SETTINGS)]);
               setSettings(DEFAULT_SETTINGS);
               setJobName("Job Name");
               setDoorType("2 Panel");
@@ -401,10 +485,11 @@ const App = () => {
   };
 
   const updateDoor = (id, field, value) => {
-    const effectiveSettings = profile === "Ovolo" ? { ...settings, grooveDepth: 1.5, tongueLength: 1.5 } : settings;
-    if (field === "width" || field === "height") {
-      const door = doors.find((d) => d.id === id);
-      if (door) {
+    const door = doors.find((d) => d.id === id);
+    if (door) {
+      const doorSettings = door.settings || settings;
+      const effectiveSettings = profile === "Ovolo" ? { ...doorSettings, grooveDepth: 1.5, tongueLength: 1.5 } : doorSettings;
+      if (field === "width" || field === "height") {
         const proposedDoor = { ...door, [field]: value };
         const { errors } = validateDoor(proposedDoor, effectiveSettings, doorType);
         if (errors.length > 0) {
@@ -416,7 +501,7 @@ const App = () => {
 
     setDoors((currentDoors) =>
       currentDoors.map((door) => {
-        if (door.id !== id) {
+        if (String(door.id) !== String(id)) {
           return door;
         }
 
@@ -431,9 +516,9 @@ const App = () => {
       <Toaster position="top-right" />
 
       {/* Input specifications: hidden in print mode */}
-      <div className="max-w-4xl mx-auto space-y-6 mb-8 print:hidden">
+      <div className="max-w-7xl mx-auto space-y-6 mb-8 print:hidden">
         {/* Main Settings Card */}
-        <div className="bg-white rounded-sm shadow-sm p-6 border border-stone-900">
+        <div className="bg-white rounded-sm shadow-sm p-6 border border-stone-900 max-w-4xl mx-auto">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <h2 className="text-xl font-bold flex items-center gap-2">
               <FileText className="text-[#00A69C]" /> Door Parts List Calculator
@@ -631,7 +716,7 @@ const App = () => {
 
               <button
                 type="button"
-                onClick={() => setIsSettingsOpen(true)}
+                onClick={() => setActiveSettingsDoorId("global")}
                 className={`${secondaryButtonClassName} cursor-pointer`}
                 title="Configure defaults and preview style"
               >
@@ -646,11 +731,9 @@ const App = () => {
               <Trash2 size={18} /> Clear All
             </button>
           </div>
-
-          {/* Settings panel has been moved to SettingsWorkspace side drawer & preview modal */}
         </div>
 
-        {/* Door Size Stack */}
+        {/* Door Size Grid */}
         <div className="space-y-4">
           <div className="flex items-center justify-between border-b border-stone-900 pb-2">
             <h3 className="font-bold text-stone-900">Door Sizes</h3>
@@ -659,7 +742,23 @@ const App = () => {
             </span>
           </div>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {/* Add New Card */}
+            <button
+              onClick={addDoor}
+              className="flex flex-col items-center justify-between border-2 border-dashed border-[#00A69C] hover:border-teal-700 rounded-2xl bg-[#FAFAFA] hover:bg-teal-50/10 p-6 min-h-[360px] transition-all cursor-pointer group"
+            >
+              <div className="flex-1 flex items-center justify-center">
+                <Plus size={72} className="text-[#00A69C] group-hover:text-teal-700 transition-colors stroke-[2.5]" />
+              </div>
+              <div className="w-full border-t border-stone-200 pt-4 text-center">
+                <span className="text-[#00A69C] group-hover:text-teal-700 font-extrabold tracking-wider text-sm uppercase">
+                  Add New
+                </span>
+              </div>
+            </button>
+
+            {/* Door Cards */}
             {doors.map((door, index) => {
               const warningsObj = doorWarnings.find((w) => w.id === door.id);
               const warnings = warningsObj ? warningsObj.warnings : [];
@@ -667,10 +766,14 @@ const App = () => {
                 <DoorCard
                   key={door.id}
                   door={door}
-                  index={doors.length - index - 1}
+                  index={index}
                   onUpdate={updateDoor}
                   onRemove={removeDoor}
+                  onOpenSettings={setActiveSettingsDoorId}
                   warnings={warnings}
+                  globalSettings={settings}
+                  doorType={doorType}
+                  profile={profile}
                 />
               );
             })}
@@ -688,18 +791,86 @@ const App = () => {
       />
 
       <SettingsWorkspace
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        updateSetting={updateSetting}
-        setSettings={setSettings}
+        isOpen={activeSettingsDoorId !== null}
+        onClose={handleCloseSettingsWorkspace}
+        settings={activeSettingsDoorId === "global" ? settings : (doors.find((d) => String(d.id) === String(activeSettingsDoorId))?.settings || settings)}
+        updateSetting={handleUpdateSetting}
+        setSettings={handleSetSettings}
         doorType={doorType}
         setDoorType={setDoorType}
         doors={doors}
         species={species}
         updateDoor={updateDoor}
         profile={profile}
+        editingDoorId={activeSettingsDoorId}
       />
+
+      {/* Warning Confirmation Modal */}
+      {pendingGlobalCloseConfirm && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs z-[60] flex items-center justify-center p-4">
+          <div className="bg-white border border-stone-900 rounded-sm p-6 max-w-md w-full shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+              ⚠️ Apply Global Settings
+            </h3>
+            <p className="text-sm text-stone-600 leading-relaxed">
+              You have changed global settings. Would you like to overwrite all existing doors' settings, or only apply these changes to new doors?
+            </p>
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={() => {
+                  // Overwrite settings on all doors
+                  setDoors((prevDoors) =>
+                    prevDoors.map((d) => ({
+                      ...d,
+                      settings: { ...settings },
+                    }))
+                  );
+                  setPendingGlobalCloseConfirm(false);
+                  setActiveSettingsDoorId(null);
+                  toast.success("Applied changes to all doors.");
+                }}
+                className="w-full py-2 bg-[#00A69C] text-white font-bold rounded-sm hover:bg-teal-700 transition-colors cursor-pointer text-sm"
+              >
+                Overwrite All Doors
+              </button>
+              <button
+                onClick={() => {
+                  // Keep settings on existing doors, only apply to global settings for new doors
+                  setPendingGlobalCloseConfirm(false);
+                  setActiveSettingsDoorId(null);
+                  toast.success("Applied changes to new doors only.");
+                }}
+                className="w-full py-2 bg-stone-100 border border-stone-300 text-stone-700 font-bold rounded-sm hover:bg-stone-200 transition-colors cursor-pointer text-sm"
+              >
+                Apply to New Doors Only
+              </button>
+              <button
+                onClick={() => {
+                  // Discard changes & Close
+                  if (initialGlobalSettings) {
+                    setSettings(initialGlobalSettings);
+                  }
+                  setPendingGlobalCloseConfirm(false);
+                  setActiveSettingsDoorId(null);
+                  toast.success("Changes discarded.");
+                }}
+                className="w-full py-2 bg-red-50 border border-red-200 text-red-700 font-bold rounded-sm hover:bg-red-100 transition-colors cursor-pointer text-sm"
+              >
+                Discard Changes & Close
+              </button>
+              <button
+                onClick={() => {
+                  // Cancel / Keep editing
+                  setPendingGlobalCloseConfirm(false);
+                }}
+                className="w-full py-2 bg-transparent text-stone-500 font-semibold rounded-sm hover:text-stone-700 transition-colors cursor-pointer text-xs text-center"
+              >
+                Cancel (Keep Editing)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
