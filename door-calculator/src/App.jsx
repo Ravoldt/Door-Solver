@@ -123,13 +123,15 @@ const App = () => {
   const [pendingGlobalCloseConfirm, setPendingGlobalCloseConfirm] = useState(false);
   const [initialGlobalSettings, setInitialGlobalSettings] = useState(null);
 
-  useEffect(() => {
-    if (activeSettingsDoorId === "global") {
-      setInitialGlobalSettings({ ...settings });
-    } else {
-      setInitialGlobalSettings(null);
-    }
-  }, [activeSettingsDoorId]);
+  const handleOpenGlobalSettings = () => {
+    setInitialGlobalSettings({ ...settings });
+    setActiveSettingsDoorId("global");
+  };
+
+  const handleOpenDoorSettings = (doorId) => {
+    setInitialGlobalSettings(null);
+    setActiveSettingsDoorId(doorId);
+  };
 
   const [doors, setDoors] = useState(() => {
     try {
@@ -272,6 +274,7 @@ const App = () => {
         return;
       }
     }
+    setInitialGlobalSettings(null);
     setActiveSettingsDoorId(null);
   };
 
@@ -716,7 +719,7 @@ const App = () => {
 
               <button
                 type="button"
-                onClick={() => setActiveSettingsDoorId("global")}
+                onClick={handleOpenGlobalSettings}
                 className={`${secondaryButtonClassName} cursor-pointer`}
                 title="Configure defaults and preview style"
               >
@@ -746,7 +749,7 @@ const App = () => {
             {/* Add New Card */}
             <button
               onClick={addDoor}
-              className="flex flex-col items-center justify-between border-2 border-dashed border-[#00A69C] hover:border-teal-700 rounded-2xl bg-[#FAFAFA] hover:bg-teal-50/10 p-6 min-h-[360px] transition-all cursor-pointer group"
+              className="flex flex-col items-center justify-between border-2 border-dashed border-[#00A69C] hover:border-teal-700 rounded-2xl bg-[#FAFAFA] hover:bg-teal-50/10 p-6 min-h-[460px] transition-all cursor-pointer group"
             >
               <div className="flex-1 flex items-center justify-center">
                 <Plus size={72} className="text-[#00A69C] group-hover:text-teal-700 transition-colors stroke-[2.5]" />
@@ -769,7 +772,7 @@ const App = () => {
                   index={index}
                   onUpdate={updateDoor}
                   onRemove={removeDoor}
-                  onOpenSettings={setActiveSettingsDoorId}
+                  onOpenSettings={handleOpenDoorSettings}
                   warnings={warnings}
                   globalSettings={settings}
                   doorType={doorType}
@@ -826,6 +829,7 @@ const App = () => {
                     }))
                   );
                   setPendingGlobalCloseConfirm(false);
+                  setInitialGlobalSettings(null);
                   setActiveSettingsDoorId(null);
                   toast.success("Applied changes to all doors.");
                 }}
@@ -837,6 +841,7 @@ const App = () => {
                 onClick={() => {
                   // Keep settings on existing doors, only apply to global settings for new doors
                   setPendingGlobalCloseConfirm(false);
+                  setInitialGlobalSettings(null);
                   setActiveSettingsDoorId(null);
                   toast.success("Applied changes to new doors only.");
                 }}
@@ -851,6 +856,7 @@ const App = () => {
                     setSettings(initialGlobalSettings);
                   }
                   setPendingGlobalCloseConfirm(false);
+                  setInitialGlobalSettings(null);
                   setActiveSettingsDoorId(null);
                   toast.success("Changes discarded.");
                 }}

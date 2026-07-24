@@ -18,14 +18,14 @@ const DoorCard = ({
   const labelClassName = "block text-[10px] font-bold text-stone-500 uppercase mb-0.5 text-center";
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-[#00A69C] hover:border-teal-755 p-4 flex flex-col justify-between min-h-[360px] transition-all hover:shadow-md relative">
+    <div className="bg-white rounded-2xl shadow-sm border border-[#00A69C] hover:border-teal-755 p-4 flex flex-col justify-between min-h-[460px] transition-all hover:shadow-md relative">
       {/* Index Badge */}
       <div className="absolute top-3 left-3 w-6 h-6 rounded-full bg-teal-50 text-[#00A69C] flex items-center justify-center text-xs font-black border border-[#00A69C]/30 select-none z-10">
         {index + 1}
       </div>
 
       {/* Scaled Preview */}
-      <div className="flex-1 flex items-center justify-center py-2 min-h-[160px]">
+      <div className="flex-1 flex items-center justify-center py-2 min-h-[240px]">
         <DoorCardSvg door={door} settings={globalSettings} doorType={doorType} profile={profile} />
       </div>
 

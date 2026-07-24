@@ -16,7 +16,7 @@ const DoorCardSvg = ({ door, settings, doorType, profile }) => {
   return (
     <svg
       viewBox={`${-p} ${-p} ${vbW} ${vbH}`}
-      className="w-full max-h-48 select-none pointer-events-none transition-all duration-350 mx-auto"
+      className="w-full max-h-72 select-none pointer-events-none transition-all duration-350 mx-auto"
       style={{ aspectRatio: `${vbW}/${vbH}` }}
     >
       <defs>

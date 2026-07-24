@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { X, RotateCcw, HelpCircle, ChevronDown, Check } from "lucide-react";
 import { DEFAULT_SETTINGS, STYLE_REQUIRED_SETTINGS, DOOR_STYLES, getDoorGeometry } from "../doorconfig";
-import { toFraction, parseFraction, formatInputDimension } from "../utils";
+import { parseFraction, formatInputDimension } from "../utils";
 import DimensionInput from "./DimensionInput";
 import { toast } from "react-hot-toast";
 import { validateDoor } from "../validation";
@@ -261,21 +261,20 @@ const SettingsWorkspace = ({
   const [refDoorId, setRefDoorId] = useState("default");
   const inlineInputRef = useRef(null);
 
-  // Sync refDoorId with doors list
-  useEffect(() => {
+  // Compute effective reference door ID for display/preview
+  const effectiveRefDoorId = useMemo(() => {
     if (editingDoorId && editingDoorId !== "global") {
-      setRefDoorId(String(editingDoorId));
-    } else if (doors.length === 0) {
-      if (refDoorId !== "default") {
-        setRefDoorId("default");
-      }
-    } else {
-      const exists = doors.some((d) => String(d.id) === String(refDoorId));
-      if (!exists || refDoorId === "default") {
-        setRefDoorId(String(doors[0].id));
-      }
+      return String(editingDoorId);
     }
-  }, [doors, refDoorId, editingDoorId]);
+    if (doors.length === 0) {
+      return "default";
+    }
+    const exists = doors.some((d) => String(d.id) === String(refDoorId));
+    if (exists) {
+      return refDoorId;
+    }
+    return String(doors[0].id);
+  }, [editingDoorId, doors, refDoorId]);
 
   // Safeguard: sanitize settings state by merging with defaults and ensuring numeric types
   const activeSettings = useMemo(() => {
@@ -304,10 +303,10 @@ const SettingsWorkspace = ({
 
   // Determine current width and height for reference preview
   const { previewWidth, previewHeight } = useMemo(() => {
-    if (refDoorId === "default" || !doors.length) {
+    if (effectiveRefDoorId === "default" || !doors.length) {
       return { previewWidth: localDefaultWidth, previewHeight: localDefaultHeight };
     }
-    const selectedDoor = doors.find((d) => String(d.id) === String(refDoorId));
+    const selectedDoor = doors.find((d) => String(d.id) === String(effectiveRefDoorId));
     if (selectedDoor) {
       return {
         previewWidth: Number(selectedDoor.width) || localDefaultWidth,
@@ -315,7 +314,7 @@ const SettingsWorkspace = ({
       };
     }
     return { previewWidth: localDefaultWidth, previewHeight: localDefaultHeight };
-  }, [refDoorId, doors, localDefaultWidth, localDefaultHeight]);
+  }, [effectiveRefDoorId, doors, localDefaultWidth, localDefaultHeight]);
 
   // Get drawing geometry
   const geometry = useMemo(() => {
@@ -351,7 +350,7 @@ const SettingsWorkspace = ({
       inlineInputRef.current.focus();
       inlineInputRef.current.select();
     }
-  }, [inlineEdit?.fieldName]);
+  }, [inlineEdit]);
 
   if (!isOpen) return null;
 
@@ -548,7 +547,7 @@ const SettingsWorkspace = ({
                 ) : (
                   <div className="relative">
                     <select
-                      value={refDoorId}
+                      value={effectiveRefDoorId}
                       onChange={(e) => {
                         setRefDoorId(e.target.value);
                         setInlineEdit(null);
