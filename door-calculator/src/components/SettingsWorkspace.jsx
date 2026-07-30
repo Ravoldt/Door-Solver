@@ -260,6 +260,7 @@ const SettingsWorkspace = ({
   // Reference door size selection state
   const [refDoorId, setRefDoorId] = useState("default");
   const inlineInputRef = useRef(null);
+  const focusedInlineFieldRef = useRef(null);
 
   // Compute effective reference door ID for display/preview
   const effectiveRefDoorId = useMemo(() => {
@@ -344,11 +345,15 @@ const SettingsWorkspace = ({
     }
   }, [focusedField]);
 
-  // Focus effect for inline input
+  // Focus effect for inline input (focuses and selects text only once when inlineEdit opens)
   useEffect(() => {
-    if (inlineEdit && inlineInputRef.current) {
+    const currentField = inlineEdit?.fieldName;
+    if (currentField && inlineInputRef.current && focusedInlineFieldRef.current !== currentField) {
+      focusedInlineFieldRef.current = currentField;
       inlineInputRef.current.focus();
       inlineInputRef.current.select();
+    } else if (!currentField) {
+      focusedInlineFieldRef.current = null;
     }
   }, [inlineEdit]);
 

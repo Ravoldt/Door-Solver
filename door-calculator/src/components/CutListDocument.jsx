@@ -251,7 +251,7 @@ const CutListDocument = ({ data, doorType, jobName, species, profile, finish }) 
 
   const renderFooter = () => (
     <div className={`mt-auto text-[10px] text-stone-500 border-t ${printBorderClassName} pt-2 flex justify-between`}>
-      <span>Generated via doorsolver.app v{APP_VERSION}</span>
+      <span>Generated using doorsolver.app v{APP_VERSION}</span>
       <span>Date: {new Date().toLocaleDateString()}</span>
     </div>
   );

@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, FileText, FolderOpen, Plus, Printer, Save, Settings, Trash2 } from "lucide-react";
+import { ChevronDown, FileText, FolderOpen, Plus, Printer, Save, Settings, Trash2, Zap } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 import { PDFDocument } from "pdf-lib";
 import html2canvas from "html2canvas-pro";
 import { calculateData } from "./calculations";
 import CutListDocument from "./components/CutListDocument";
 import DoorCard from "./components/DoorCard";
-import { parseFraction } from "./utils";
+import { parseFraction, formatInputDimension } from "./utils";
 import { DEFAULT_SETTINGS, DOOR_STYLES, APP_VERSION } from "./doorconfig";
 import SettingsWorkspace from "./components/SettingsWorkspace";
 import MiniDoorStyleSvg from "./components/MiniDoorStyleSvg";
+import MobileQuickAdd from "./components/MobileQuickAdd";
 import { validateDoor } from "./validation";
 
 const PREDEFINED_SPECIES = [
@@ -88,36 +89,15 @@ const inputLineClassName =
 
 
 const App = () => {
-  const [doorType, setDoorType] = useState(() => {
-    return localStorage.getItem("door_calculator_doorType") ?? "2 Panel";
-  });
-  const [jobName, setJobName] = useState(() => {
-    return localStorage.getItem("door_calculator_jobName") ?? "Job Name";
-  });
-  const [selectedSpecies, setSelectedSpecies] = useState(() => {
-    const saved = localStorage.getItem("door_calculator_species") ?? "Poplar";
-    return PREDEFINED_SPECIES.includes(saved) ? saved : "Custom";
-  });
-  const [customText, setCustomText] = useState(() => {
-    const saved = localStorage.getItem("door_calculator_species") ?? "Poplar";
-    return PREDEFINED_SPECIES.includes(saved) ? "" : saved;
-  });
+  const [doorType, setDoorType] = useState("2 Panel");
+  const [jobName, setJobName] = useState("Job Name");
+  const [selectedSpecies, setSelectedSpecies] = useState("Poplar");
+  const [customText, setCustomText] = useState("");
 
   const species = selectedSpecies === "Custom" ? customText : selectedSpecies;
-  const [profile, setProfile] = useState(() => {
-    return localStorage.getItem("door_calculator_profile") ?? "Shaker";
-  });
-  const [finish, setFinish] = useState(() => {
-    return localStorage.getItem("door_calculator_finish") ?? "Stain";
-  });
-  const [settings, setSettings] = useState(() => {
-    try {
-      const saved = localStorage.getItem("door_calculator_settings");
-      return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
-    } catch {
-      return DEFAULT_SETTINGS;
-    }
-  });
+  const [profile, setProfile] = useState("Shaker");
+  const [finish, setFinish] = useState("Stain");
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
   const [activeSettingsDoorId, setActiveSettingsDoorId] = useState(null); // null = closed, 'global' = global settings, door.id = specific door
   const [pendingGlobalCloseConfirm, setPendingGlobalCloseConfirm] = useState(false);
@@ -133,49 +113,81 @@ const App = () => {
     setActiveSettingsDoorId(doorId);
   };
 
-  const [doors, setDoors] = useState(() => {
-    try {
-      const saved = localStorage.getItem("door_calculator_doors");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.map((d) => ({
-          ...d,
-          settings: d.settings || DEFAULT_SETTINGS,
-        }));
+  // Start with no doors added on initial load / reload
+  const [doors, setDoors] = useState([]);
+
+  // Warn user on refresh or tab close if doors exist
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (doors.length > 0) {
+        event.preventDefault();
+        event.returnValue = "";
       }
-      return [createDoor(36, 96, DEFAULT_SETTINGS)];
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [doors.length]);
+
+  const [recentDoors, setRecentDoors] = useState(() => {
+    try {
+      const saved = localStorage.getItem("door_calculator_recent_doors");
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return [createDoor(36, 96, DEFAULT_SETTINGS)];
+      return [];
     }
   });
 
-  useEffect(() => {
-    localStorage.setItem("door_calculator_doorType", doorType);
-  }, [doorType]);
+  const addRecentDoorSize = (w, h) => {
+    const numericW = Number(w);
+    const numericH = Number(h);
+    if (!numericW || !numericH) return;
 
-  useEffect(() => {
-    localStorage.setItem("door_calculator_jobName", jobName);
-  }, [jobName]);
+    setRecentDoors((prev) => {
+      const filtered = prev.filter((item) => item.width !== numericW || item.height !== numericH);
+      const newEntry = {
+        width: numericW,
+        height: numericH,
+        label: `${formatInputDimension(numericW)} × ${formatInputDimension(numericH)}`,
+      };
+      const updated = [newEntry, ...filtered].slice(0, 8);
+      try {
+        localStorage.setItem("door_calculator_recent_doors", JSON.stringify(updated));
+      } catch (err) {
+        console.error("Failed to save recent doors:", err);
+      }
+      return updated;
+    });
+  };
 
-  useEffect(() => {
-    localStorage.setItem("door_calculator_species", species);
-  }, [species]);
+  const handleClearRecentDoors = () => {
+    setRecentDoors([]);
+    try {
+      localStorage.removeItem("door_calculator_recent_doors");
+    } catch (err) {
+      console.error("Failed to clear recent doors:", err);
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem("door_calculator_profile", profile);
-  }, [profile]);
+  const handleAddQuickDoor = (width, height, qty = 1) => {
+    const effectiveSettings = profile === "Ovolo" ? { ...settings, grooveDepth: 1.5, tongueLength: 1.5 } : settings;
+    const testDoor = createDoor(width, height, settings);
+    testDoor.qty = qty;
 
-  useEffect(() => {
-    localStorage.setItem("door_calculator_finish", finish);
-  }, [finish]);
+    const { errors } = validateDoor(testDoor, effectiveSettings, doorType);
+    if (errors.length > 0) {
+      toast.error(errors[0].message);
+      return false;
+    }
 
-  useEffect(() => {
-    localStorage.setItem("door_calculator_settings", JSON.stringify(settings));
-  }, [settings]);
+    addRecentDoorSize(width, height);
 
-  useEffect(() => {
-    localStorage.setItem("door_calculator_doors", JSON.stringify(doors));
-  }, [doors]);
+    setDoors((currentDoors) => [
+      ...currentDoors,
+      { ...testDoor, id: Date.now() },
+    ]);
+    toast.success(`Added ${qty}x (${formatInputDimension(width)}" × ${formatInputDimension(height)}") door`);
+    return true;
+  };
 
   const data = useMemo(() => {
     return calculateData(doors, settings, doorType, profile);
@@ -431,6 +443,9 @@ const App = () => {
   const addDoor = () => {
     setDoors((currentDoors) => {
       const prevDoor = currentDoors[currentDoors.length - 1];
+      const w = prevDoor ? prevDoor.width : 36;
+      const h = prevDoor ? prevDoor.height : 96;
+      addRecentDoorSize(w, h);
       const newDoor = prevDoor
         ? createDoor(prevDoor.width, prevDoor.height, settings)
         : createDoor(36, 96, settings);
@@ -461,7 +476,7 @@ const App = () => {
           <button
             onClick={() => {
               toast.dismiss(t.id);
-              setDoors([createDoor(36, 96, DEFAULT_SETTINGS)]);
+              setDoors([]);
               setSettings(DEFAULT_SETTINGS);
               setJobName("Job Name");
               setDoorType("2 Panel");
@@ -736,8 +751,17 @@ const App = () => {
           </div>
         </div>
 
+        {/* Mobile Quick Draft Entry Card */}
+        <div id="quick-draft-section" className="max-w-4xl mx-auto mb-6">
+          <MobileQuickAdd
+            onAddDoor={handleAddQuickDoor}
+            recentDoors={recentDoors}
+            onClearRecentDoors={handleClearRecentDoors}
+          />
+        </div>
+
         {/* Door Size Grid */}
-        <div className="space-y-4">
+        <div id="door-sizes-grid" className="space-y-4">
           <div className="flex items-center justify-between border-b border-stone-900 pb-2">
             <h3 className="font-bold text-stone-900">Door Sizes</h3>
             <span className="text-xs bg-stone-100 border border-stone-900 px-2 py-0.5 rounded-sm font-semibold text-stone-900">
@@ -877,6 +901,55 @@ const App = () => {
           </div>
         </div>
       )}
+      {/* Mobile Sticky Navigation Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-stone-300 py-2 px-6 flex items-center justify-around z-40 sm:hidden shadow-lg">
+        <button
+          type="button"
+          onClick={() => {
+            document.getElementById("quick-draft-section")?.scrollIntoView({ behavior: "smooth" });
+          }}
+          className="flex flex-col items-center gap-1 text-stone-600 hover:text-[#00A69C] active:text-[#00A69C] cursor-pointer"
+        >
+          <Zap size={18} />
+          <span className="text-[10px] font-bold uppercase">Quick Draft</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            document.getElementById("door-sizes-grid")?.scrollIntoView({ behavior: "smooth" });
+          }}
+          className="flex flex-col items-center gap-1 text-stone-600 hover:text-[#00A69C] relative cursor-pointer"
+        >
+          <div className="relative">
+            <FileText size={18} />
+            {doors.length > 0 && (
+              <span className="absolute -top-1.5 -right-2 bg-[#00A69C] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                {doors.length}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] font-bold uppercase">Doors ({doors.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleAddQuickDoor(36, 96, 1)}
+          className="flex flex-col items-center justify-center bg-[#00A69C] text-white w-11 h-11 rounded-full shadow-md -mt-5 cursor-pointer active:scale-95 transition-transform"
+          title="Quick add 36x96 door"
+        >
+          <Plus size={22} className="stroke-[3]" />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleOpenGlobalSettings}
+          className="flex flex-col items-center gap-1 text-stone-600 hover:text-[#00A69C] cursor-pointer"
+        >
+          <Settings size={18} />
+          <span className="text-[10px] font-bold uppercase">Settings</span>
+        </button>
+      </div>
     </div>
   );
 };
