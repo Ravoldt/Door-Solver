@@ -1,1 +1,6 @@
-referenceSheets/
+.dev/
+.vscode/
+.vs/
+.impeccable/
+.git/
+
